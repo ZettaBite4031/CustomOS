@@ -302,3 +302,61 @@ x86_Video_SetMode:
     mov esp, ebp
     pop ebp
     ret
+
+;
+; int EXTERN x86_E820GetNextBlock(E820MemoryBlock* block, uint32_t* continuationId)
+;
+E820Signature equ 0x534D4150
+
+global x86_E820GetNextBlock
+x86_E820GetNextBlock:
+    push ebp
+    mov ebp, esp
+
+    x86_EnterRealMode
+    push ebx
+    push ecx
+    push edx
+    push esi
+    push edi
+    push ds
+    push es
+
+    LinearToSegOff [bp + 8], es, edi, di
+
+    LinearToSegOff [bp + 12], ds, esi, si
+    mov ebx, ds:[si]
+
+    mov eax, 0xE820
+    mov edx, E820Signature
+    mov ecx, 24
+
+    int 15h
+
+    cmp eax, E820Signature
+    jne .error
+    .ok:
+        mov eax, ecx        ; return size
+        mov ds:[si], ebx    ; continuation
+        jmp .end
+
+    .error:
+        mov eax, -1
+
+    .end:
+
+    pop es
+    pop ds
+    pop edi
+    pop esi
+    pop edx
+    pop ecx
+    pop ebx
+
+    push eax
+    x86_EnterProtectedMode
+    pop eax
+
+    mov esp, ebp
+    pop ebp
+    ret
