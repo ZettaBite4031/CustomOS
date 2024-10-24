@@ -10,13 +10,17 @@
 #include "zosdefs.h"
 #include "debug.h"
 #include "elf.h"
+#include "memdetect.h"
+#include <boot/bootparams.h>
 
 #define COLOR(r,g,b) ((b) | (g << 8) | (r << 16))
 
 uint8_t* KernelLoadBuffer = (uint8_t*)MEMORY_LOAD_KERNEL_ADDR;
 uint8_t* Kernel = (uint8_t*)MEMORY_KERNEL_ADDR;
 
-typedef void(*KernelMain)();
+BootParams g_BootParams;
+
+typedef void(*KernelMain)(BootParams*);
 
 void __attribute__((cdecl)) Start(uint16_t bootDrive, void* partition_location) {
     cls();
@@ -54,6 +58,11 @@ void __attribute__((cdecl)) Start(uint16_t bootDrive, void* partition_location) 
     }
     FAT_Close(fd);
 
+    // prepare boot params
+    
+    g_BootParams.BootDevice = bootDrive;
+    Memory_Detect(&g_BootParams.Memory);
+
     // load kernel
     void* kernelEntryPoint;
     LogInfo("Stage2 Main", "Loading the Kernel ELF...");
@@ -66,7 +75,7 @@ void __attribute__((cdecl)) Start(uint16_t bootDrive, void* partition_location) 
     // execute kernel
     LogInfo("Stage2 Main", "Kernel loaded successfully. Beginning execution...")
     KernelMain kernelEntry = (KernelMain)kernelEntryPoint;
-    kernelEntry();
+    kernelEntry(&g_BootParams);
 
     LogError("Stage2 Main", "The kernel has broken out of confinement!");
     cls();

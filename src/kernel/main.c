@@ -4,6 +4,8 @@
 #include "memory.h"
 #include "debug.h"
 
+#include <boot/bootparams.h>
+
 #pragma region 
 // libgcc function which calls all global constructors.
 // Usually this is done in assembly, but since we skipped that part, we do it here.
@@ -17,9 +19,12 @@ void __attribute__((constructor)) test_constructor() {
 #pragma endregion
 
 // Kernel Main
-void KernelEntry() {
+void KernelEntry(BootParams* bootParams) {
     // Call all global instructors
     _init();
+
+    LogInfo("Kernel Main", "Boot Device: 0x%x", bootParams->BootDevice);
+    LogInfo("Kernel Main", "Memory Region Count: 0x%d", bootParams->Memory.BlockCount);
 
     LogInfo("Kernel Main", "Beginning kernel initialization...");
 

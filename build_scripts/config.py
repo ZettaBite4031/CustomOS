@@ -3,4 +3,9 @@
 imageType = 'disk'
 imageFS = 'fat32'
 # imageSize = '250m'
-toolchain='./toolchain'
+toolchain = '../Toolchain'
+
+# mount method
+# guestfs - uses libguestfs, doesn't need sudo
+# mount - uses mount, requires sudo
+mountMethod = 'guestfs'
