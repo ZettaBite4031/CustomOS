@@ -1,6 +1,6 @@
 ENTRY(ZOS_START)
 OUTPUT_FORMAT("binary")
-phys = 0x7C00;
+phys = 0x700;
 
 SECTIONS
 {
@@ -41,7 +41,7 @@ SECTIONS
     /* 
         Last 2 bytes of the boot sector. Required for the BIOS to detect the BS.
     */
-    .boot_signature 0x7DFE : { SHORT(0xAA55) }
+    .boot_signature phys + 0x1FE : { SHORT(0xAA55) }
 
     /* 
         Uninitialized memory (declared with resb/resw/resq). 

@@ -14,8 +14,8 @@ entry:
 
     ; save boot drive
     mov [g_BootDrive], dl
-    mov [g_BootParitionSegment], di
-    mov [g_BootParitionOffset], si
+    mov [g_BootParitionOffset], di
+    mov [g_BootParitionSegment], es
 
     mov ax, ds
     mov ss, ax

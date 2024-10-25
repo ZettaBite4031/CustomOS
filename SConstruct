@@ -157,6 +157,7 @@ Default(image)
 PhonyTargets(HOST_ENVIRONMENT, 
              run=['./scripts/run.sh', HOST_ENVIRONMENT['imageType'], image[0].path],
              debug=['./scripts/debug.sh', HOST_ENVIRONMENT['imageType'], image[0].path],
+             debug_stage2=['./scripts/debug_stage2.sh', HOST_ENVIRONMENT['imageType'], image[0].path],
              bochs=['./scripts/bochs.sh', HOST_ENVIRONMENT['imageType'], image[0].path],
              toolchain=['./scripts/setup_toolchain.sh', HOST_ENVIRONMENT['toolchain']],
              hex=['./scripts/hex.sh', image[0].path])

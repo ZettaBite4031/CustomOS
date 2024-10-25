@@ -1,5 +1,7 @@
 bits 16
 
+%include "config.inc"
+
 %define ENDL 0x0A, 0x0D
 
 %define fat12 1
@@ -52,25 +54,43 @@ section .fsheaders
 
 section .entry
 global ZOS_START
+
+    ; the MBR will pass the following information:
+    ; dl - drive number
+    ; ds:si - boot partition table entry
+    
 ZOS_START:
-    ; move partition entry from MBR to prevent overwriting
-    mov ax, PARTITION_ENTRY_SEGMENT
+    ; copy partition entry
+    mov ax, STAGE1_SEGMENT
     mov es, ax
-    mov di, PARTITION_ENTRY_OFFSET
+    mov di, parition_entry
     mov cx, 16
     rep movsb
 
+    ;
+    ; relocate stage 1
+    ;
     mov ax, 0
     mov ds, ax
-    mov es, ax
+    mov si, 0x7C00
+    mov di, STAGE1_OFFSET
+    mov cx, 512
+    rep movsb    
 
+    jmp STAGE1_SEGMENT:.relocated
+    .relocated:
+    
+    ;
+    ; INITIALIZATION
+    ;
+
+    ; setup data segments
+    mov ax, STAGE1_SEGMENT
+    mov ds, ax
+
+    ; setup stack
     mov ss, ax
-    mov sp, 0x7C00
-
-    push es
-    push word .after
-    retf
-    .after:
+    mov sp, STAGE1_OFFSET
 
     mov [ebr_drive_number], dl
 
@@ -79,6 +99,7 @@ ZOS_START:
     mov ah, 0x41
     mov bx, 0x55AA
     int 13h
+
     jc .no_disk_extensions
     cmp bx, 0xAA55
     jne .no_disk_extensions
@@ -91,43 +112,49 @@ ZOS_START:
     mov byte [has_extensions], 0
 
     .load_stage2:
-    ; load stage2
-    mov si, stage2_location
-    
-    mov ax, STAGE2_LOAD_SEGMENT
-    mov es, ax
+    ; load boot table lba
+    mov eax, [boot_table_lba]
+    mov cx, 1
+    mov bx, boot_table
+    call ReadDisk
 
-    mov bx, STAGE2_LOAD_OFFSET
+    ;
+    ; parse boot table and load
+    ;
+    mov si, boot_table
 
-    .read_loop:
-        mov eax, [si]
-        add si, 4
-        mov cl, [si]
-        inc si
+    ; parse entry 
+    mov eax, [si]
+    mov [entry_point], eax
+    add si, 4
 
-        cmp eax, 0
-        je .read_finish
+    .readloop:
+        ; read until lba = 0
+        cmp dword [si + boot_table_entry.lba], 0
+        je .endreadloop
 
+        mov eax, [si + boot_table_entry.lba]
+        mov bx, [si + boot_table_entry.load_seg]
+        mov es, bx
+        mov bx, [si + boot_table_entry.load_off]
+        mov cl, [si + boot_table_entry.count]
         call ReadDisk
 
-        xor ch, ch
-        shl cx, 5
-        mov di, es
-        add di, cx
-        mov es, di
+        add si, boot_table_entry_size
+        jmp .readloop
 
-        jmp .read_loop
+    .endreadloop:
+    
+    mov dl, [ebr_drive_number]    
+    ; es:di points to partition entry
+    mov di, parition_entry
 
-    .read_finish:
-    mov dl, [ebr_drive_number]
-    mov di, PARTITION_ENTRY_SEGMENT
-    mov si, PARTITION_ENTRY_OFFSET
-
-    mov ax, STAGE2_LOAD_SEGMENT
+    mov ax, [entry_point.seg]
     mov ds, ax
-    mov es, ax
 
-    jmp STAGE2_LOAD_SEGMENT:STAGE2_LOAD_OFFSET
+    push ax
+    push word [entry_point.off]
+    retf
 
 
 section .text
@@ -146,11 +173,6 @@ section .text
 ;
     FloppyError:
         mov si, ReadFailedMSG
-        call puts
-        jmp WaitKeyReboot
-
-    Stage2NotFound:
-        mov si, Stage2NotFoundMSG
         call puts
         jmp WaitKeyReboot
 ;
@@ -212,26 +234,17 @@ section .text
         mov [extensions_dap.lba], eax
         mov [extensions_dap.segment], es
         mov [extensions_dap.offset], bx
-        mov [extensions_dap.count], cl
+        mov [extensions_dap.count], cx
 
         mov ah, 0x42
         mov si, extensions_dap
-        mov di, 3
-        jmp .retry
-
-        .no_disk_extensions:
-        push cx
-        call LBS2CHS
-        pop ax
-        
-        mov ah, 02h
         mov di, 3
         .retry:
             pusha
             stc
             int 13h
             popa
-            jnc .done
+            jnc .function_end
 
             ; failed
             call DiskReset
@@ -242,8 +255,52 @@ section .text
 
         .fail:
             jmp FloppyError
-        
-        .done:    
+
+
+        .no_disk_extensions:
+        mov esi, eax                        ; save lba to esi 
+        mov di, cx                          ; save sector count to di
+
+        .outer_loop:
+            mov eax, esi
+            call LBS2CHS
+            mov ax, 1                       ; read one sector
+            
+            push di
+            mov di, 3
+            mov ah, 02h
+            .inner_retry:
+                pusha
+                stc
+                int 13h
+                popa
+                jnc .inner_done
+
+                ; failed
+                call DiskReset
+
+                dec di
+                test di, di
+                jnz .inner_retry
+
+            .inner_fail:
+                jmp FloppyError
+            
+            .inner_done:    
+            pop di
+
+            cmp di, 0
+            je .function_end
+
+            inc esi
+            dec di
+            mov ax, es
+            add ax, 512 / 16
+            mov es, ax
+            jmp .outer_loop
+
+        .function_end:
+
         pop di
         pop si
         pop dx
@@ -297,29 +354,31 @@ section .text
 ;
 section .rodata
     ReadFailedMSG: db "Failed read!", ENDL, 0
-    Stage2NotFoundMSG: db "stage2.bin not found", ENDL, 0
-    FileStage2Bin: db "STAGE2  BIN"
 
 section .data
-    has_extensions: db 0
     extensions_dap: 
         .size:      db 10h
-                    db 0h
+                    db 0
         .count:     dw 0
         .offset:    dw 0
         .segment:   dw 0
         .lba:       dq 0
 
+    struc boot_table_entry
+        .lba        resd 1
+        .load_off   resw 1
+        .load_seg   resw 1
+        .count      resw 1
+    endstruc
 
-    STAGE2_LOAD_SEGMENT equ 0x0
-    STAGE2_LOAD_OFFSET equ 0x500
-
-    PARTITION_ENTRY_SEGMENT equ 0x2000
-    PARTITION_ENTRY_OFFSET  equ 0x0
-
-    global stage2_location
-    stage2_location: times 30 db 0
-
+    global boot_table_lba
+    boot_table_lba: dd 0
 
 section .bss
-    Buffer: resb 512
+    has_extensions:     resb 1
+    Buffer:             resb 512
+    parition_entry:     resb 16
+    boot_table:         resb 512
+    entry_point:
+        .off:           resw 1
+        .seg:           resw 1
