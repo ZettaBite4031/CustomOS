@@ -31,5 +31,9 @@ void logf(const char* module, DebugLevel level, const char* fmt, ...) {
     fputs(g_DefaultColor, VFS_FD_DEBUG);                                            // reset color
     fputc('\n', VFS_FD_DEBUG);                                                      // newline
 
+    fprintf(VFS_FD_STDOUT, "[%s] [%s] - ", g_LogSeveritySymbols[level], module);     // print module
+    vfprintf(VFS_FD_STDOUT, fmt, args);                                              // print message
+    fputc('\n', VFS_FD_STDOUT);                                                      // newline
+
     va_end(args);
 }
