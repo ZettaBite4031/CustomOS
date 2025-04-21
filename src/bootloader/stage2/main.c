@@ -61,6 +61,7 @@ void __attribute__((cdecl)) Start(uint16_t bootDrive, void* partition_location) 
     // prepare boot params
     
     g_BootParams.BootDevice = bootDrive;
+    g_BootParams.PartitionLocation = partition_location;
     Memory_Detect(&g_BootParams.Memory);
 
     // load kernel
