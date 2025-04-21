@@ -5,6 +5,7 @@
 #include <arch/i686/irq.h>
 #include <arch/i686/vga_text.h>
 #include <arch/i686/timer.h>
+#include <arch/i686/rtc.h>
 
 #include <stdio.h>
 #include <debug.h>
@@ -19,8 +20,9 @@ void HAL_Initialize(BootParams* bootparams) {
     i686_IDT_Initialize();
     i686_ISR_Initialize();
     i686_IRQ_Initialize();
-    mem_init(&bootparams->Memory);
+    Mem_Init(&bootparams->Memory);
     PIT_Init(1000);
+    RTC_Init(true, true);
     LogInfo("HAL", "Initialization finished successfully.");
     LogInfo("HAL", "Initialization Success!");
 }
