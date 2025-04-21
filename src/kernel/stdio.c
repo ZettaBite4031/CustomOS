@@ -49,10 +49,38 @@ void fprintf_unsigned(fd_t file, unsigned long long number, int radix) {
 
 void fprintf_signed(fd_t file, long long number, int radix) {
     if (number < 0) {
-        putc('-');
+        fputc(file, '-');
         fprintf_unsigned(file, -number, radix);
     }
     else fprintf_unsigned(file, number, radix);
+}
+
+void fprintf_double(fd_t file, double number, int radix) {
+    if (number < 0) {
+        fputc('-', file);
+        number = -number;
+    }
+
+    unsigned long long int_part = (unsigned long long)number;
+    double fractional = number - (double)int_part;
+
+    fprintf_unsigned(file, int_part, radix);
+    fputc('.', file);
+
+    char buffer[32];
+    int pos = 0;
+
+    // TODO: implement a more sophisticated precision specifier
+    int precision = 4;
+    for (int i = 0; i < precision; i++) {
+        fractional *= 10.f;
+        int digit = (int)fractional;
+        buffer[pos++] = g_HexChars[digit];
+        fractional -= digit;
+    }
+
+    for (int i = 0; i < pos; ++i)
+        fputc(buffer[i], file);
 }
 
 void vfprintf(fd_t file, const char* fmt, va_list args) {
@@ -61,6 +89,7 @@ void vfprintf(fd_t file, const char* fmt, va_list args) {
     int radix = 10;
     bool sign = false;
     bool number = false;
+    bool floating = false;
 
     while (*fmt)
     {
@@ -121,18 +150,21 @@ void vfprintf(fd_t file, const char* fmt, va_list args) {
                                 break;
 
                     case 'd':
-                    case 'i':   radix = 10; sign = true; number = true;
+                    case 'i':   radix = 10; sign = true; number = true; floating = false;
                                 break;
 
-                    case 'u':   radix = 10; sign = false; number = true;
+                    case 'u':   radix = 10; sign = false; number = true; floating = false;
                                 break;
 
                     case 'X':
                     case 'x':
-                    case 'p':   radix = 16; sign = false; number = true;
+                    case 'p':   radix = 16; sign = false; number = true; floating = false;
                                 break;
 
-                    case 'o':   radix = 8; sign = false; number = true;
+                    case 'o':   radix = 8; sign = false; number = true; floating = false;
+                                break;
+
+                    case 'f':   radix = 10; sign = true; number = true; floating = true;
                                 break;
 
                     // ignore invalid spec
@@ -140,7 +172,10 @@ void vfprintf(fd_t file, const char* fmt, va_list args) {
                 }
                 
                 if (number) {
-                    if (sign) {
+                    if (floating) {
+                        fprintf_double(file, va_arg(args, double), radix);
+                    }
+                    else if (sign) {
                         switch (length) {
                             case PRINTF_LENGTH_SHORT_SHORT:
                             case PRINTF_LENGTH_SHORT:
@@ -177,6 +212,7 @@ void vfprintf(fd_t file, const char* fmt, va_list args) {
                 radix = 10;
                 sign = false;
                 number = false;
+                floating = false;
                 break;
         }
 
