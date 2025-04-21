@@ -9,12 +9,11 @@ typedef struct block_header {
 } block_header_t;
 
 uint32_t get_alignment(void* ptr) {
-    uintptr_t addr = (uintptr_t)ptr;
-    uint32_t alignment = 1;
-    while ((addr & alignment) == 0 && alignment <= 64) alignment <<= 1;
-    return alignment >>= 1;
+    uintptr_t a = (uintptr_t)ptr;
+    // take the lowest set bit of a, up to 64:
+    uint32_t align = a & -a;
+    return (align > 64 ? 64 : align);
 }
-
 
 extern uint32_t KERNEL_START;
 extern uint32_t KERNEL_END;
@@ -37,7 +36,6 @@ bool mem_init(MemoryInfo* mem_info) {
         LogCritical("MemInit", "Could not find suitable region for the allocator!");
         return false;
     }
-    LogInfo("MemInit", "Allocator region:\n  Base: 0x%llx\n  Length: 0x%llx (%dMB)\n  Type: 0x%x\n  ACPI: 0x%x", region.Begin, region.Length, region.Length / 1024 / 1024, region.Type, region.ACPI);
 
     uint32_t kernel_start_addr = (uint32_t)&KERNEL_START;
     uint32_t kernel_end_addr = (uint32_t)&KERNEL_END;
@@ -59,14 +57,15 @@ void* malloc_aligned(uint32_t size, uint32_t alignment) {
     while (current) {
         if (current->free) {
             uintptr_t block_addr = (uintptr_t)current;
-            uintptr_t user_start = ALIGN_UP(block_addr + sizeof(block_header_t) + sizeof(void*), alignment);
+            uintptr_t raw_user_start = block_addr + sizeof(block_header_t) + sizeof(void*);
+            uintptr_t user_start = ALIGN_UP(raw_user_start, alignment);
             uintptr_t total_size = (user_start + size) - block_addr;
 
             if (current->size >= total_size) {
                 // If enough room to split
                 if (current->size > total_size + sizeof(block_header_t)) {
                     block_header_t* new_block = (block_header_t*)(block_addr + total_size);
-                    new_block->size = current->size - total_size - sizeof(block_header_t);
+                    new_block->size = current->size - total_size - sizeof(block_header_t) - sizeof(void*);
                     new_block->free = true;
                     new_block->prev = current;
                     
@@ -96,6 +95,7 @@ void* malloc(uint32_t size) {
 
 void* calloc(uint32_t size) {
     void* ptr = malloc(size);
+    if (!ptr) return NULL;
     memset(ptr, 0, size);
     return ptr;
 }
@@ -122,7 +122,7 @@ void free_aligned(void* ptr) {
     if (block->prev && block->prev->free) {
         block->prev->size += sizeof(block_header_t) + block->size;
         block->prev->next = block->next;
-        block->prev->next = block->next;
+        
         if (block->next) block->next->prev = block->prev;
         block = block->prev;
     }
@@ -170,5 +170,57 @@ void* realloc(void* ptr, uint32_t new_size) {
 
 void* recalloc(void* ptr, uint32_t new_size) {
     ptr = realloc(ptr, new_size);
+    if (!ptr) return NULL;
     memset(ptr, 0, new_size);
+    return ptr;
+}
+
+void dump_heap() {
+    block_header_t* current = free_list;
+    int index = 0;
+
+    uint32_t payload_used = 0;
+    uint32_t payload_free = 0;
+    uint32_t overhead_header = 0;
+    uint32_t overhead_ptr    = 0;
+
+    LogInfo("Heap Dump", "==========================");
+
+    while (current) {
+        // Block range [header .. header+sizeof(header)+current->size)
+        void*   hdr_start = (void*)current;
+        void*   hdr_end   = (uint8_t*)current + sizeof(block_header_t) + current->size;
+        bool    is_free   = current->free;
+        const char* state = is_free ? "FREE" : "USED";
+
+        LogInfo("Heap Dump",
+                "Block %d: %s | Size: %u | Range: %p – %p",
+                index++, state,
+                current->size,
+                hdr_start,
+                hdr_end);
+
+        // Count payload vs. overhead
+        overhead_header += sizeof(block_header_t);
+
+        if (is_free) {
+            payload_free += current->size;
+        } else {
+            // subtract backref pointer; ignore alignment-padding in this stat
+            payload_used += current->size - sizeof(void*);
+            overhead_ptr   += sizeof(void*);
+        }
+
+        current = current->next;
+    }
+
+    uint32_t total_payload  = payload_used + payload_free;
+    uint32_t total_overhead = overhead_header + overhead_ptr;
+
+    LogInfo("Heap Dump", "Total Payload Used: %u bytes", payload_used);
+    LogInfo("Heap Dump", "Total Payload Free: %u bytes", payload_free);
+    LogInfo("Heap Dump", "Total Header Overhead: %u bytes", overhead_header);
+    LogInfo("Heap Dump", "Total Pointer Overhead: %u bytes", overhead_ptr);
+    LogInfo("Heap Dump", "Grand Total: %u bytes", total_payload + total_overhead);
+    LogInfo("Heap Dump", "==========================");
 }
