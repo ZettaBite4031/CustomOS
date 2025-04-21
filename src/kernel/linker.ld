@@ -5,11 +5,13 @@ phys = 0x00100000;
 SECTIONS 
 {
     . = phys;
+    KERNEL_START = .;
     
     .text               : { __text_start = .;   *(.text)    }
     .data               : { __data_start = .;   *(.data)    }
     .rodata             : { __rodata_start = .; *(.rodata)  }
     .bss                : { __bss_start = .;    *(.bss)     }
 
-    __end = .;
+    KERNEL_END = .;
+    FirstFree = .;
 }

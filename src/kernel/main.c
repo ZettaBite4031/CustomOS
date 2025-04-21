@@ -3,6 +3,7 @@
 #include <hal/hal.h>
 #include "memory.h"
 #include "debug.h"
+#include <arch/i686/qemu.h>
 
 #include <boot/bootparams.h>
 
@@ -38,5 +39,20 @@ void KernelEntry(BootParams* bootParams) {
     LogError("Error", "This is an error message!");
     LogCritical("Critical", "This is a critical failure message!!");
 
+    mem_init(&bootParams->Memory);
+    void* a = malloc(100);
+    void* b = malloc(200);
+    LogInfo("Stage2 Main", "Mem Test &a = 0x%p &b = 0x%p", a, b);
+    free(a);
+    void* c = malloc(50);
+    LogInfo("Stage2 Main", "Mem Test &c = 0x%p", c);
+    free(b);
+    free(c);
+    a = malloc(0x10000);
+    b = malloc(48);
+    LogInfo("Stage2 Main", "Mem Test new &a = 0x%p new &b = 0x%p", a, b);
+
+
+    exit(0);
     HALT
 }
