@@ -4,8 +4,11 @@
 #include "memory.h"
 #include "debug.h"
 #include <arch/i686/qemu.h>
+#include <arch/i686/timer.h>
 
 #include <boot/bootparams.h>
+
+#include "test.h"
 
 #pragma region 
 // libgcc function which calls all global constructors.
@@ -29,30 +32,20 @@ void KernelEntry(BootParams* bootParams) {
 
     LogInfo("Kernel Main", "Beginning kernel initialization...");
 
-    HAL_Initialize();
+    HAL_Initialize(bootParams);
 
     LogInfo("Kernel Main", "Kernel Initialization Success!");
 
-    LogDebug("Debug", "This is a debug message!");
-    LogInfo("Info", "This is an info message!");
-    LogWarn("Warn", "This is a warning message!");
-    LogError("Error", "This is an error message!");
-    LogCritical("Critical", "This is a critical failure message!!");
+    //LogDebug("Debug", "This is a debug message!");
+    //LogInfo("Info", "This is an info message!");
+    //LogWarn("Warn", "This is a warning message!");
+    //LogError("Error", "This is an error message!");
+    //LogCritical("Critical", "This is a critical failure message!!");
 
-    mem_init(&bootParams->Memory);
-    void* a = malloc(100);
-    void* b = malloc(200);
-    LogInfo("Stage2 Main", "Mem Test &a = 0x%p &b = 0x%p", a, b);
-    free(a);
-    void* c = malloc(50);
-    LogInfo("Stage2 Main", "Mem Test &c = 0x%p", c);
-    free(b);
-    free(c);
-    a = malloc(0x10000);
-    b = malloc(48);
-    LogInfo("Stage2 Main", "Mem Test new &a = 0x%p new &b = 0x%p", a, b);
-
-
+    test_allocator();
+    LogInfo("Stage2 Main", "Now we sleep for 5 seconds and then exit!");
+    sleep(5000);
+    LogInfo("Stage2 Main", "We woke up!");
     exit(0);
     HALT
 }
