@@ -12,7 +12,10 @@ env.Append(
         '-Wl,-T', env.File('linker.ld').srcnode().path,
         '-Wl,-Map=' + env.File('stage2.map').path
     ],
-    CPPPATH = [ env.Dir('.').srcnode(), env["ROOTDIR"].Dir("src/libs") ],
+    CPPPATH = [ 
+        env.Dir('.').srcnode(), 
+        env['ROOTDIR'].Dir('src/libs').srcnode()
+    ],
     ASFLAGS = [ '-I', env.Dir('.').srcnode() ]
 )
 

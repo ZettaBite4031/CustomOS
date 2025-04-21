@@ -12,7 +12,7 @@ int EXTERN memcmp(const void* ptr1, const void* ptr2, uint16_t num);
 
 uint32_t get_alignment(void* ptr);
 
-bool mem_init(MemoryInfo* mem_info);
+bool Mem_Init(MemoryInfo* mem_info);
 void* malloc(uint32_t size);
 void* calloc(uint32_t size);
 void free(void* ptr);

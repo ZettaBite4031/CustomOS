@@ -5,6 +5,8 @@
 #include "debug.h"
 #include <arch/i686/qemu.h>
 #include <arch/i686/timer.h>
+#include <arch/i686/rtc.h>
+#include <arch/i686/pio.h>
 
 #include <boot/bootparams.h>
 
@@ -36,16 +38,23 @@ void KernelEntry(BootParams* bootParams) {
 
     LogInfo("Kernel Main", "Kernel Initialization Success!");
 
-    //LogDebug("Debug", "This is a debug message!");
-    //LogInfo("Info", "This is an info message!");
-    //LogWarn("Warn", "This is a warning message!");
-    //LogError("Error", "This is an error message!");
-    //LogCritical("Critical", "This is a critical failure message!!");
+    rtc_time_t time;
+    RTC_GetTime(&time);
+    RTC_LogTime("Kernel Main", &time);
+    time.hour -= 4;
+    RTC_SetTime(&time);
+    RTC_GetTime(&time);
+    RTC_LogTime("Kernel Main", &time);
 
-    test_allocator();
-    LogInfo("Stage2 Main", "Now we sleep for 5 seconds and then exit!");
-    sleep(5000);
-    LogInfo("Stage2 Main", "We woke up!");
+    uint8_t* buffer = malloc(512);
+    ATA_ReadPIO(bootParams->BootDevice, 0, 1, buffer);
+    print_buffer("ATA_ReadPIO returned: ", buffer, 512);
+
+    LogInfo("Kernel Main", "Now we sleep for 10 seconds and then exit!");
+    sleep(10000);
+    LogInfo("Kernel Main", "We woke up!");
     exit(0);
+
+
     HALT
 }

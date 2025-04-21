@@ -17,7 +17,7 @@ uint32_t get_alignment(void* ptr) {
 
 extern uint32_t KERNEL_START;
 extern uint32_t KERNEL_END;
-extern block_header_t FirstFree; 
+extern block_header_t MEMORY_BEGIN; 
 
 static block_header_t* free_list = NULL;
 
@@ -30,7 +30,7 @@ MemoryRegion find_suitable_region(MemoryInfo* mem_info) {
     return alloc_block;
 }
 
-bool mem_init(MemoryInfo* mem_info) {
+bool Mem_Init(MemoryInfo* mem_info) {
     MemoryRegion region = find_suitable_region(mem_info);
     if (region.Length == 0) {
         LogCritical("MemInit", "Could not find suitable region for the allocator!");
@@ -42,7 +42,7 @@ bool mem_init(MemoryInfo* mem_info) {
     uint32_t reserved_kernel_length = (kernel_end_addr - kernel_start_addr);
     uint32_t segment_size = region.Length - reserved_kernel_length - sizeof(block_header_t);
 
-    free_list = &FirstFree;
+    free_list = &MEMORY_BEGIN;
     free_list->size = segment_size;
     free_list->free = true;
     free_list->next = NULL;

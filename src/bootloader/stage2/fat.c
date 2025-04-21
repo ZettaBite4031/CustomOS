@@ -396,7 +396,6 @@ bool FAT_FindFile(Partition* partition, FAT_File* file, const char* name, FAT_Di
                     }
                 }
                 *namePos = 0;
-                LogDebug("FAT_FindFile", "Last LFN Block detected! LFN: %s", longName);
             }
         }
         if (memcmp(shortName, entry.Name, 11) == 0) {

@@ -13,5 +13,5 @@ SECTIONS
     .bss                : { __bss_start = .;    *(.bss)     }
 
     KERNEL_END = .;
-    FirstFree = .;
+    MEMORY_BEGIN = .;
 }

@@ -67,7 +67,7 @@ EXPORT void ASMCALL Start(uint16_t bootDrive, uint32_t partition_segoff) {
     }
     Debug::Info("Stage2", "Successfully initialized the FAT file system!");
 
-    File* kernel = fs.Open("kernel.bin", FileOpenMode::Read);
+    File* kernel = fs.Open("kernel.elf", FileOpenMode::Read);
 
     HALT
 }
