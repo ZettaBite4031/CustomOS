@@ -1,6 +1,6 @@
 #!/bin/bash
 
-QEMU_ARGS='-debugcon stdio -m 32'
+QEMU_ARGS='-debugcon stdio -m 256 -device isa-debug-exit,iobase=0xf4,iosize=0x01'
 
 if [ "$#" -le 1 ]; then
     echo "Usage: ./run.sh <image_type> <image>"
@@ -17,3 +17,5 @@ case "$1" in
 esac
 
 qemu-system-i386 $QEMU_ARGS
+
+exit $(($? >> 1))
