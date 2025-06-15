@@ -3,7 +3,6 @@
 #include "pic.h"
 #include "io.h"
 #include "i8259.h"
-#include "debug.h"
 
 #include <stddef.h>
 

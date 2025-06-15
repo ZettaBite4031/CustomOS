@@ -4,7 +4,7 @@
 #include "io.h"
 
 #include <stdio.h>
-#include <debug.h>
+#include <core/Debug.hpp>
 #include <stddef.h>
 
 #include <zosdefs.h>
@@ -50,17 +50,15 @@ void i686_ISR_Initialize() {
 extern "C" void GLOBAL i686_ISR_Handler(Registers* regs) {
     if (g_ISRHandlers[regs->interrupt] != NULL)
         g_ISRHandlers[regs->interrupt](regs);
-    else if (regs->interrupt >= 32) printf("Unhandled interrupt %d!!\n", regs->interrupt);
-    else {
-        LogCritical("ISR", "Unhandled Exception!! %d: %s | Registers printed to kernel!", regs->interrupt, g_Exceptions[regs->interrupt]);
-        printf("Unhandled Exception!! %d: %s\n", regs->interrupt, g_Exceptions[regs->interrupt]);
-        printf("Registers:\n");
-        printf("EAX = 0x%x  |  EBX = 0x%x  |  ECX = 0x%x  |  EDX = 0x%x\n", regs->eax, regs->ebx, regs->ecx, regs->edx);
-        printf("ESI = 0x%x  |  EDI = 0x%x  |  ESP = 0x%x  |  EBP = 0x%x\n", regs->esi, regs->edi, regs->esp, regs->ebp);
-        printf("EIP = 0x%x  |   SS = 0x%x  |   CS = 0x%x  |   DS = 0x%x\n", regs->eip, regs->ss, regs->cs, regs->ds);
-        printf("EFLAGS = 0x%x\n", regs->eflags);
-        LogCritical("ISR", "!KERNEL PANIC!");
-        printf("\n!KERNEL PANIC!\n\n");
+    else if (regs->interrupt >= 32) Debug::Critical("ISR", "Unhandled interrupt %d!!", regs->interrupt);
+    else { 
+        Debug::Critical("ISR", "Unhandled Exception!! %d: %s!", regs->interrupt, g_Exceptions[regs->interrupt]);
+        Debug::Critical("ISR", "Registers:");
+        Debug::Critical("ISR", "EAX = 0x%x  |  EBX = 0x%x  |  ECX = 0x%x  |  EDX = 0x%x", regs->eax, regs->ebx, regs->ecx, regs->edx);
+        Debug::Critical("ISR", "ESI = 0x%x  |  EDI = 0x%x  |  ESP = 0x%x  |  EBP = 0x%x", regs->esi, regs->edi, regs->esp, regs->ebp);
+        Debug::Critical("ISR", "EIP = 0x%x  |   SS = 0x%x  |   CS = 0x%x  |   DS = 0x%x", regs->eip, regs->ss, regs->cs, regs->ds);
+        Debug::Critical("ISR", "EFLAGS = 0x%x", regs->eflags);
+        Debug::Critical("ISR", "!KERNEL PANIC!");
         i686_PANIC();
     }
 }

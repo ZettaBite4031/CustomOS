@@ -7,10 +7,20 @@ namespace Debug {
     namespace {
         static inline const constexpr int MaximumLogDevices = 10;
         static inline constexpr const char* const g_DefaultColor = "\033[0m";
-        static inline constexpr const char* const g_LogSeverityColors[] = 
-                        { "\033[2;37m" /* Debug */, "\033[37m" /* Info */, "\033[1;33m" /* Warn */, "\033[1;31m" /* Error */, "\033[1;37;41m" /* Critical */ };
-        static inline constexpr const char* const g_LogSeveritySymbols[] = 
-                        { "?" /* Debug */, "-" /* Info */, "+" /* Warn */, "*" /* Error */, "!" /* Critical */};
+        static inline constexpr const char* const g_LogSeverityColors[] = { 
+                    "\033[2;37m"    /* Debug */, 
+                    "\033[37m"      /* Info */, 
+                    "\033[1;33m"    /* Warn */, 
+                    "\033[1;31m"    /* Error */, 
+                    "\033[1;37;41m" /* Critical */ 
+                };
+        static inline constexpr const char* const g_LogSeveritySymbols[] = { 
+                    "?" /* Debug */, 
+                    "-" /* Info */, 
+                    "+" /* Warn */, 
+                    "*" /* Error */, 
+                    "!" /* Critical */
+                };
 
         struct {
             TextDevice* device;
@@ -23,10 +33,11 @@ namespace Debug {
             for (int i = 0; i < g_LogDevicesCount; i++) {
                 if (level < g_LogDevices[i].minLogLevel) continue;
                 TextDevice* device = g_LogDevices[i].device;
-                if (g_LogDevices[i].useTextColor) device->WriteF(g_LogSeverityColors[(int)level]);
+                bool use_color = g_LogDevices[i].useTextColor;
+                if (use_color) device->WriteF(g_LogSeverityColors[(int)level]);
                 device->WriteF("[%s] [%s] - ", g_LogSeveritySymbols[(int)level], module);
                 device->VWriteF(fmt, args);
-                if (g_LogDevices[i].useTextColor) device->WriteF(g_DefaultColor);
+                if (use_color) device->WriteF(g_DefaultColor);
                 device->Write('\n');
             }
         }

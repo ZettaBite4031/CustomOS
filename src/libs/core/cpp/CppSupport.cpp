@@ -5,9 +5,3 @@ EXPORT int __cxa_atexit(void (*destructor) (void *), void *arg, void *__dso_hand
 {
     return 0;
 }
-
-
-void operator delete(void*, unsigned long) {
-    // TODO: after implementing memory management
-    arch::i686::PANIC();
-}

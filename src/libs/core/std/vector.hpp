@@ -1,7 +1,9 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
+#include <core/cpp/Memory.hpp>
 #include <core/std/Utility.hpp>
 #include <core/Assert.hpp>
 
@@ -120,17 +122,48 @@ namespace std {
             }
         }
         
+        template<typename Predicate>
+        size_t find(Predicate&& predicate) {
+            for (size_t i{ 0 }; i < _size; i++) {
+                if (predicate(_data[i])) {
+                    return i;
+                }
+            }
+            return _size;
+        }
+
+
+        template<typename Predicate>
+        T* find_item(Predicate&& predicate) {
+            for (size_t i{ 0 }; i < _size; i++) {
+                if (predicate(_data[i])) {
+                    return std::addressof(_data[i]);
+                }
+            }
+            return nullptr;
+        }
+
+        template<typename Predicate> 
+        const T* find_item(Predicate&& predicate) const {
+            for (size_t i{ 0 }; i < _size; i++) {
+                if (predicate(_data[i])) {
+                    return std::addressof(_data[i]);
+                }
+            }
+            return nullptr;
+        }
+
         constexpr T* const erase(size_t index) {
             return erase(std::addressof(_data[index]));
         }
-        
+
         constexpr T* const erase(T* const item) {
             Assert(_data && item >= std::addressof(_data[0]) && item < std::addressof(_data[_size]));
             
             if constexpr (destruct) item->~T();
             _size--;
             if (item < std::addressof(_data[_size])) {
-                memcpy(item, item + 1, std::addressof(_data[_size]) * sizeof(T));
+                memcpy(item, item + 1, (std::addressof(_data[_size]) - item) * sizeof(T));
             }
             
             return item;

@@ -4,7 +4,7 @@
 #include "io.h"
 
 #include <stddef.h>
-#include <debug.h>
+#include <core/Debug.hpp>
 #include <stdio.h>
 #include <zosdefs.h>
 
@@ -35,12 +35,12 @@ void i686_IRQ_Initialize() {
     }
     
     if (g_Driver == NULL) {
-        LogError("IRQ", "Unable to find suitable PIC!");
+        Debug::Error("IRQ", "Unable to find suitable PIC!");
         printf("WARNING: Unable to find suitable PIC!\n");
         return;
     }
 
-    LogInfo("IRQ", "Suitable PIC Found! %s", g_Driver->Name);
+    Debug::Info("IRQ", "Suitable PIC Found! %s", g_Driver->Name);
     g_Driver->Initialize(PIC_REMAP_OFFSET, PIC_REMAP_OFFSET + 8, false);
 
     // register ISR handlers for each 16 irq lines

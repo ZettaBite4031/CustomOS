@@ -1,6 +1,9 @@
 #include "vfs.h"
-#include <arch/i686/vga_text.h>
-#include <arch/i686/e9.h>
+#include <core/arch/i686/VGATextDevice.hpp>
+#include <core/arch/i686/E9Device.hpp>
+
+arch::i686::E9Device* GetGlobalE9Device();
+arch::i686::VGATextDevice* GetGlobalVGADevice();
 
 int VFS_Write(fd_t file, uint8_t* data, size_t size) {
     switch (file) {
@@ -9,13 +12,11 @@ int VFS_Write(fd_t file, uint8_t* data, size_t size) {
 
         case VFS_FD_STDOUT:
         case VFS_FD_STDERR:
-            for (size_t i = 0; i < size; i++) 
-                VGA_putc(data[i]);
+            GetGlobalVGADevice()->Write(data, size);
             return size;
 
         case VFS_FD_DEBUG:
-            for (size_t i = 0; i < size; i++) 
-                E9_putc(data[i]);
+            GetGlobalE9Device()->Write(data, size);
             return size;
 
         default: return -1; // Invalid file descriptor 

@@ -1,9 +1,11 @@
+[bits 32]
+
 ;
-; void* memcpy(void* dst, void* src, uint32_t count);
+; EXPORT void ASMCALL memcpy(void* dst, void* src, size_t size);
 ; Args (cdecl):
 ;  [ebp + 8]  - dst
 ;  [ebp + 12]  - src
-;  [ebp + 16] - count
+;  [ebp + 16] - size
 ; Returns:
 ;  eax - dst
 ;
@@ -30,13 +32,12 @@ memcpy:
     pop ebp
     ret
 
-
 ;
-; void* memset(void* dst, int value, uint32_t count);
+; EXPORT void ASMCALL memset(void* dst, uint32_t val, size_t size);
 ; Args (cdecl):
 ;  [ebp + 8]  - dst
-;  [ebp + 12]  - value
-;  [ebp + 16] - count
+;  [ebp + 12]  - val
+;  [ebp + 16] - size
 ; Returns:
 ;  eax - dst
 ;
@@ -63,13 +64,12 @@ memset:
     pop ebp
     ret
 
-
 ;
-; int memcmp(const void* s1, const void* s2, size_t count)
+; EXPORT int ASMCALL memcmp(const void* s1, const void* s2, size_t size)
 ; Args (cdecl):
-;   [ebp + 8]  - s1 (const void*)
-;   [ebp + 12] - s2 (const void*)
-;   [ebp + 16] - count (size_t)
+;   [ebp + 8]  - s1  
+;   [ebp + 12] - s2  
+;   [ebp + 16] - size 
 ; Returns:
 ;   eax = 0 if equal
 ;   eax < 0 if s1 < s2

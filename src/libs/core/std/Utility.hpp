@@ -16,7 +16,7 @@ namespace std {
 
     template<typename T>
     constexpr T&& forward(typename std::remove_reference<T>::type& t) noexcept {
-        static_assert(!std::is_lvalue_reference<T>::value, "Forwarding an rvalue as an lvalue is not allowed!");
+        //static_assert(!std::is_lvalue_reference<T>::value, "Forwarding an rvalue as an lvalue is not allowed!");
         return static_cast<T&&>(t);
     }
 
@@ -56,6 +56,17 @@ namespace std {
     public:
         static constexpr bool value = decltype(test<T>(0))::value;
     };
+
+    template<bool Condition, typename T = void>
+    struct enable_if { };
+
+    template<typename T>
+    struct enable_if<true, T> {
+        using type = T;
+    };
+
+    template<bool Condition, typename T = void>
+    using enable_if_t = typename enable_if<Condition, T>::type;
 }
 
 

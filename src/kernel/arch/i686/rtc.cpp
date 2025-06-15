@@ -1,7 +1,7 @@
 #include "rtc.hpp"
 #include "io.h"
 #include "timer.h"
-#include "debug.h"
+#include <core/Debug.hpp>
 
 #define CMOS_ADDR 0x70
 #define CMOS_DATA 0x71
@@ -106,5 +106,5 @@ void RTC::LogTime(const char* module, const RTC::RTCTime& time) {
         default: month_str = "unknown"; break;
     }
 
-    LogInfo(module, "Current RTC Time: %d %s, %d%d %d:%d:%d", time.day, month_str, time.cen, time.year, time.hour, time.min, time.sec);
+    Debug::Info(module, "Current RTC Time: %d %s, %d%d %d:%d:%d", time.day, month_str, time.cen, time.year, time.hour, time.min, time.sec);
 }

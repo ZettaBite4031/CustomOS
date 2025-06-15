@@ -1,5 +1,5 @@
-#include "memory.h"
-#include "debug.h"
+#include "Memory.hpp"
+#include <core/Debug.hpp>
 
 typedef struct block_header {
     uint32_t size;
@@ -33,7 +33,7 @@ MemoryRegion find_suitable_region(MemoryInfo* mem_info) {
 bool Mem_Init(MemoryInfo* mem_info) {
     MemoryRegion region = find_suitable_region(mem_info);
     if (region.Length == 0) {
-        LogCritical("MemInit", "Could not find suitable region for the allocator!");
+        Debug::Critical("MemInit", "Could not find suitable region for the allocator!");
         return false;
     }
 
@@ -184,7 +184,7 @@ void dump_heap() {
     uint32_t overhead_header = 0;
     uint32_t overhead_ptr    = 0;
 
-    LogInfo("Heap Dump", "==========================");
+    Debug::Info("Heap Dump", "==========================");
 
     while (current) {
         // Block range [header .. header+sizeof(header)+current->size)
@@ -193,7 +193,7 @@ void dump_heap() {
         bool    is_free   = current->free;
         const char* state = is_free ? "FREE" : "USED";
 
-        LogInfo("Heap Dump",
+        Debug::Info("Heap Dump",
                 "Block %d: %s | Size: %u | Range: %p – %p",
                 index++, state,
                 current->size,
@@ -217,12 +217,12 @@ void dump_heap() {
     uint32_t total_payload  = payload_used + payload_free;
     uint32_t total_overhead = overhead_header + overhead_ptr;
 
-    LogInfo("Heap Dump", "Total Payload Used: %u bytes", payload_used);
-    LogInfo("Heap Dump", "Total Payload Free: %u bytes", payload_free);
-    LogInfo("Heap Dump", "Total Header Overhead: %u bytes", overhead_header);
-    LogInfo("Heap Dump", "Total Pointer Overhead: %u bytes", overhead_ptr);
-    LogInfo("Heap Dump", "Grand Total: %u bytes", total_payload + total_overhead);
-    LogInfo("Heap Dump", "==========================");
+    Debug::Info("Heap Dump", "Total Payload Used: %u bytes", payload_used);
+    Debug::Info("Heap Dump", "Total Payload Free: %u bytes", payload_free);
+    Debug::Info("Heap Dump", "Total Header Overhead: %u bytes", overhead_header);
+    Debug::Info("Heap Dump", "Total Pointer Overhead: %u bytes", overhead_ptr);
+    Debug::Info("Heap Dump", "Grand Total: %u bytes", total_payload + total_overhead);
+    Debug::Info("Heap Dump", "==========================");
 }
 
 void* operator new(size_t size) {

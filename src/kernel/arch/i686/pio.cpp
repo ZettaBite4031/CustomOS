@@ -2,7 +2,7 @@
 
 #include "io.h"
 #include "timer.h"
-#include "memory.h"
+#include <core/cpp/Memory.hpp>
 
 static bool ATA_WaitDRQ() {
     for (int i = 0; i < 1000; i++) {
