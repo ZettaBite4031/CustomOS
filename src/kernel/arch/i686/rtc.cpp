@@ -1,4 +1,4 @@
-#include "rtc.h"
+#include "rtc.hpp"
 #include "io.h"
 #include "timer.h"
 #include "debug.h"
@@ -19,26 +19,24 @@ static inline void cmos_write(uint8_t reg, uint8_t val) {
 static uint8_t bcd_to_bin(uint8_t b) { return (b & 0x0F) + ((b >> 4) * 10); }
 static uint8_t bin_to_bcd(uint8_t b) { return ((b/10)<<4) | (b%10); }
 
-void RTC_Init(bool binary_format, bool time_24hr) {
+void RTC::Init(bool binary, bool time_24hr) {
     // set data format
-    uint8_t status_reg = cmos_read(0x0B); 
-    if (time_24hr)      status_reg |= 1 << 1; // Enable 24 format
-    if (binary_format)  status_reg |= 1 << 2; // Enable binary format
+    uint8_t status_reg = cmos_read(0x0B);
+    if (time_24hr)  status_reg |= 1 << 1;
+    if (binary)     status_reg |= 1 << 2;
     cmos_write(0x0B, status_reg);
 
     // set interrupt rate
-    // See MC146818 docs for rate control, set up 256Hz
     uint8_t data = cmos_read(0x0A);
     data = (data & 0xF0) | 1;
     cmos_write(0x0A, data);
 
     // enable interrupts
-    uint8_t original = cmos_read(0x8B);
-    cmos_write(0x8B, original | 0x40);
+    uint8_t reg = cmos_read(0x8B);
+    cmos_write(0x8B, reg | 0x40);
 }
 
-void RTC_GetTime(rtc_time_t* t) {
-
+void RTC::GetTime(RTC::RTCTime& time) {
     while (cmos_read(0x0A) & 0x80) sleep(250);
 
     uint8_t sec  = cmos_read(0x00);
@@ -48,7 +46,7 @@ void RTC_GetTime(rtc_time_t* t) {
     uint8_t mon  = cmos_read(0x08);
     uint8_t yr   = cmos_read(0x09);
     uint8_t cen  = cmos_read(0x32);
-
+    
     uint8_t ctrl = cmos_read(0x0B);
     bool bcd     = !(ctrl & (1<<2));
 
@@ -64,35 +62,35 @@ void RTC_GetTime(rtc_time_t* t) {
         hr &= 0x7F;
     }
 
-    t->sec  = sec;
-    t->min  = min;
-    t->hour = hr;
-    t->day  = day;
-    t->mon  = mon;
-    t->year = yr;
-    t->cen  = cen;
+    time.sec = sec;
+    time.min = min;
+    time.hour = hr;
+    time.day = day;
+    time.mon = mon;
+    time.year = yr;
+    time.cen = cen;
 }
 
-void RTC_SetTime(const rtc_time_t* t) {
+void RTC::SetTime(const RTC::RTCTime& time) {
     uint8_t ctrl = cmos_read(0x0B);
     cmos_write(0x0B, ctrl | 0x80);
 
     bool bcd = !(ctrl & (1<<2));
 
-    cmos_write(0x00, bcd ? bin_to_bcd(t->sec)  : t->sec);
-    cmos_write(0x02, bcd ? bin_to_bcd(t->min)  : t->min);
-    cmos_write(0x04, bcd ? bin_to_bcd(t->hour) : t->hour);
-    cmos_write(0x07, bcd ? bin_to_bcd(t->day)  : t->day);
-    cmos_write(0x08, bcd ? bin_to_bcd(t->mon)  : t->mon);
-    cmos_write(0x09, bcd ? bin_to_bcd(t->year) : t->year);
-    cmos_write(0x32, bcd ? bin_to_bcd(t->cen)  : t->cen);
+    cmos_write(0x00, bcd ? bin_to_bcd(time.sec)  : time.sec);
+    cmos_write(0x02, bcd ? bin_to_bcd(time.min)  : time.min);
+    cmos_write(0x04, bcd ? bin_to_bcd(time.hour) : time.hour);
+    cmos_write(0x07, bcd ? bin_to_bcd(time.day)  : time.day);
+    cmos_write(0x08, bcd ? bin_to_bcd(time.mon)  : time.mon);
+    cmos_write(0x09, bcd ? bin_to_bcd(time.year) : time.year);
+    cmos_write(0x32, bcd ? bin_to_bcd(time.cen)  : time.cen);
 
     cmos_write(0x0B, ctrl & ~0x80);
 }
 
-void RTC_LogTime(const char* module, const rtc_time_t* t) {
+void RTC::LogTime(const char* module, const RTC::RTCTime& time) {
     const char* month_str;
-    switch(t->mon) {
+    switch(time.mon) {
         case 1: month_str = "January"; break;
         case 2: month_str = "Febuary"; break;
         case 3: month_str = "March"; break;
@@ -108,5 +106,5 @@ void RTC_LogTime(const char* module, const rtc_time_t* t) {
         default: month_str = "unknown"; break;
     }
 
-    LogInfo(module, "Current RTC Time: %d %s, %d%d %d:%d:%d", t->day, month_str, t->cen, t->year, t->hour, t->min, t->sec);
+    LogInfo(module, "Current RTC Time: %d %s, %d%d %d:%d:%d", time.day, month_str, time.cen, time.year, time.hour, time.min, time.sec);
 }

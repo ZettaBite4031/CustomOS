@@ -1,7 +1,7 @@
 #pragma once
 
 // Short-hand macro which designates functions defined in assembly files.
-#define EXTERN __attribute__((cdecl))
+#define EXTERN __attribute__((cdecl)) 
 
 // Short-hand macro which desginates symbols in C as visible to assembly files.
 #define GLOBAL __attribute__((cdecl))

@@ -5,3 +5,4 @@ toolchain/
 bx_enh_dbg.ini
 *.dblite
 __pycache__/
+kernel_C/

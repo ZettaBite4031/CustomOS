@@ -1,4 +1,4 @@
-#include "idt.h"
+#include "idt.hpp"
 #include <util/binary.h>
 #include <zosdefs.h>
 
@@ -19,9 +19,9 @@ IDTEntry g_IDT[256];
 
 IDTDescriptor g_IDTDesc = { sizeof(g_IDT) - 1, g_IDT };
 
-void EXTERN i686_IDT_Load(IDTDescriptor* desc);
+extern "C" void EXTERN i686_IDT_Load(IDTDescriptor* desc);
 
-void i686_IDT_SetGate(int interrupt, void* base, uint16_t segemntDesc, uint8_t flags) {
+extern "C" void i686_IDT_SetGate(int interrupt, void* base, uint16_t segemntDesc, uint8_t flags) {
     g_IDT[interrupt].BaseLow = ((uint32_t)base) & 0xFFFF;
     g_IDT[interrupt].SegmentSelector = segemntDesc;
     g_IDT[interrupt].Reserved = 0;

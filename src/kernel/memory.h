@@ -6,9 +6,9 @@
 
 #define ALIGN_UP(ptr, alignment) (((ptr) + ((alignment) - 1)) & ~((alignment) - 1))
 
-void* EXTERN memcpy(void* dst, const void* src, uint16_t num);
-void* EXTERN memset(void* ptr, int value, uint16_t num);
-int EXTERN memcmp(const void* ptr1, const void* ptr2, uint16_t num);
+extern "C" void* EXTERN memcpy(void* dst, const void* src, uint16_t num);
+extern "C" void* EXTERN memset(void* ptr, int value, uint16_t num);
+extern "C" int EXTERN memcmp(const void* ptr1, const void* ptr2, uint16_t num);
 
 uint32_t get_alignment(void* ptr);
 

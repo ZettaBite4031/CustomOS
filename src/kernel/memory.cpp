@@ -224,3 +224,39 @@ void dump_heap() {
     LogInfo("Heap Dump", "Grand Total: %u bytes", total_payload + total_overhead);
     LogInfo("Heap Dump", "==========================");
 }
+
+void* operator new(size_t size) {
+    return malloc(static_cast<uint32_t>(size));
+}
+
+void* operator new[](size_t size) {
+    return malloc(static_cast<uint32_t>(size));
+}
+
+void operator delete(void* ptr) {
+    free(ptr);
+}
+
+void operator delete[](void* ptr) {
+    free(ptr);
+}
+
+void* operator new(size_t size, size_t align) {
+    return malloc_aligned(static_cast<uint32_t>(size), static_cast<uint32_t>(align));
+}
+
+void operator delete(void* ptr, size_t align) {
+    free_aligned(ptr);
+}
+
+void* operator new[](size_t size, size_t align) {
+    return malloc_aligned(static_cast<uint32_t>(size), static_cast<uint32_t>(align));
+}
+
+void operator delete[](void* ptr, size_t align) {
+    free_aligned(ptr);
+}
+
+void operator delete(void*, void* ptr) {
+    // Do nothing
+}

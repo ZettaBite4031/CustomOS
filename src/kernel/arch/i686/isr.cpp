@@ -1,6 +1,6 @@
 #include "isr.h"
 #include "gdt.h"
-#include "idt.h"
+#include "idt.hpp"
 #include "io.h"
 
 #include <stdio.h>
@@ -47,7 +47,7 @@ void i686_ISR_Initialize() {
         i686_IDT_EnableGate(i);
 }
 
-void GLOBAL i686_ISR_Handler(Registers* regs) {
+extern "C" void GLOBAL i686_ISR_Handler(Registers* regs) {
     if (g_ISRHandlers[regs->interrupt] != NULL)
         g_ISRHandlers[regs->interrupt](regs);
     else if (regs->interrupt >= 32) printf("Unhandled interrupt %d!!\n", regs->interrupt);
