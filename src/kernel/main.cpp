@@ -28,6 +28,10 @@
 
 #include <core/cpp/String.hpp>
 
+#include <core/arch/i686/PCI.hpp>
+
+#include <core/dev/RTL8139.hpp>
+
 #pragma region 
 // libgcc function which calls all global constructors.
 // Usually this is done in assembly, but since we skipped that part, we do it here.
@@ -64,7 +68,7 @@ extern "C" void KernelEntry(BootParams* bootParams) {
 
     TextDevice e9_debug{ &g_E9Device };
     TextDevice vga_text{ &g_VGADevice };
-    Debug::AddOutputDevice(&vga_text, Debug::DebugLevel::Debug, false);
+    Debug::AddOutputDevice(&vga_text, Debug::DebugLevel::Info, false);
     Debug::AddOutputDevice(&e9_debug, Debug::DebugLevel::Debug, true);
 
     Debug::Info("Kernel Main", "Kernel Initialization Success!");
@@ -79,7 +83,7 @@ extern "C" void KernelEntry(BootParams* bootParams) {
     
     std::vector<uint8_t> test_buffer(512);
     ATA_ReadPIO(bootParams->BootDevice, 0, 1, test_buffer.data());
-    print_buffer("ATA_ReadPIO w/ Vector returned: ", test_buffer.data(), test_buffer.size());
+    Debug::HexDump("ATA_ReadPIO w/ Vector returned: ", test_buffer.data(), test_buffer.size());
 
     PCI_Enumerate();
 
@@ -110,28 +114,43 @@ extern "C" void KernelEntry(BootParams* bootParams) {
         Debug::Critical("Kernel Main", "Failed to initialize FATFS");
         EoH(1);
     }
+    
+    /* { // File system demo
+        const char* file_path = "/folder/demo.txt";
+        File* test = fatfs.Open(file_path, FileOpenMode::Read);
+        if (!test) {
+            Debug::Critical("Kernel Main", "Failed to open %s", file_path);
+            EoH(1);
+        }
+        std::vector<uint8_t> text_data(test->Size());
+        test->Read(text_data.data(), text_data.size());
+        text_data.emplace_back('\0');
+        Debug::Info("Kernel Main", "%s contents:\n%s", file_path, text_data.data());
+        const char* text = "I'm sooooo bored~";
+        test->Write(reinterpret_cast<const uint8_t*>(text), strlen(text));
+        test->Seek(0, SeekPos::Set);
+        text_data.clear();
+        text_data.resize(test->Size());
+        test->Read(text_data.data(), text_data.size());
+        text_data[text_data.size()] = '\0';
+        Debug::Info("Kernel Main", "%s contents:\n%s", file_path, text_data.data());
+    } */
 
-    const char* file_path = "/folder/demo.txt";
-    File* test = fatfs.Open(file_path, FileOpenMode::Read);
-    if (!test) {
-        Debug::Critical("Kernel Main", "Failed to open %s", file_path);
-        EoH(1);
-    }
-    std::vector<uint8_t> text_data(test->Size());
-    test->Read(text_data.data(), text_data.size());
-    text_data.emplace_back('\0');
-    Debug::Info("Kernel Main", "%s contents:\n%s", file_path, text_data.data());
-    const char* text = "I'm sooooo bored~";
-    test->Write(reinterpret_cast<const uint8_t*>(text), strlen(text));
-    test->Seek(0, SeekPos::Set);
-    text_data.clear();
-    text_data.resize(test->Size());
-    test->Read(text_data.data(), text_data.size());
-    text_data[text_data.size()] = '\0';
-    Debug::Info("Kernel Main", "%s contents:\n%s", file_path, text_data.data());
+    IORange pci_io{ KernelIOAllocator.RequestIORange(PCI::PCI_CONFIG_ADDRESS, 8, false) };
+    PCI pci{ &pci_io };
+    PCIDevice rtl8139_dev{ pci.FindDevice(0x10EC, 0x8139) };
+    rtl8139_dev.PrintIDs();
+    GeneralPCIDevice rtl8139_pci = rtl8139_dev.Upgrade();
+    PCIDevice::MmapRange rtl8139_mmap{ rtl8139_pci.FindMmapRange() };
+
+    RTL8139 rtl8139{ &rtl8139_pci, rtl8139_mmap, true };
+    auto mac = rtl8139.GetMACAddress();
+    Debug::Info("Kernel Main", "ZOS MAC: %02X:%02X:%02X:%02X:%02X:%02X",
+        mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
 
     Debug::Info("Kernel Main", "Now we sleep for 2.5 seconds and then exit!");
-    sleep(2500);
+    sleep(10000);
     Debug::Info("Kernel Main", "We woke up!");
 
 
