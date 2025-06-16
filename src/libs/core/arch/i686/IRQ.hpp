@@ -6,8 +6,8 @@
 #include "ISR.hpp"
 
 namespace IRQ {
-    using IRQHandler = void(*)(ISR::Registers*);
+    using IRQHandler = void(*)(ISR::Registers*, void*);
 
     void Init();
-    void RegisterHandler(int irq, IRQHandler handler);
+    void RegisterHandler(int irq, IRQHandler handler, void* data = nullptr);
 }

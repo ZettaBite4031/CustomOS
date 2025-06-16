@@ -10,7 +10,7 @@ volatile uint64_t PITTicks{ 0 };
 PICDriver* g_Driver{ nullptr };
 uint32_t g_PITHZ{ 0 };
 
-void PITHandler(ISR::Registers* regs) {
+void PITHandler(ISR::Registers* regs, void*) {
     PITTicks++;
     g_Driver->SendEOI(0);
 }

@@ -7,14 +7,19 @@
 
 constexpr uint8_t CppPICRemapOffset{ 0x20 };
 
-IRQ::IRQHandler g_CppIRQHandlers[16]{};
+struct IRQCallback {
+    IRQ::IRQHandler handler;
+    void* data;
+};
+
+IRQCallback g_CppIRQHandlers[16]{};
 static PICDriver* g_CppIrqDriver{ nullptr };
 
 void MainIRQHandler(ISR::Registers* regs) {
     int irq = regs->interrupt - CppPICRemapOffset;
     
-    if (g_CppIRQHandlers[irq])
-        g_CppIRQHandlers[irq](regs);
+    if (g_CppIRQHandlers[irq].handler)
+        g_CppIRQHandlers[irq].handler(regs, g_CppIRQHandlers[irq].data);
     else {
         Debug::Error("IRQ", "Unhandled IRQ %d!!", irq);
     }
@@ -49,6 +54,6 @@ void IRQ::Init() {
     Debug::Info("IRQ", "IRQ initialization successful");
 }
 
-void IRQ::RegisterHandler(int irq, IRQHandler handler) {
-    g_CppIRQHandlers[irq] = handler;
+void IRQ::RegisterHandler(int irq, IRQHandler handler, void* data) {
+    g_CppIRQHandlers[irq] = { handler, data };
 }
