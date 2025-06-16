@@ -67,6 +67,69 @@ namespace std {
 
     template<bool Condition, typename T = void>
     using enable_if_t = typename enable_if<Condition, T>::type;
+
+    template<typename T, typename U>
+    struct is_same {
+        static constexpr bool value = false;
+    };
+
+    template<typename T>
+    struct is_same<T, T> {
+        static constexpr bool value = true;
+    };
+
+    template<typename T, typename U>
+    constexpr bool is_same_v = is_same<T, U>::value;
+
+    template<typename T1, typename T2> 
+    struct pair {
+        T1 first;
+        T2 second;
+
+        //constexpr pair() = default;
+        constexpr pair(const T1& a, const T2& b) 
+            : first(a), second(b) {}
+
+        template<typename U1, typename U2>
+        constexpr pair(U1&& a, U2&& b) 
+            : first(static_cast<U1&&>(a)), second(static_cast<U2&&>(b)) {}
+    };
+
+    template<typename T, T v>
+    struct integral_constant {
+        static constexpr T value = v;
+        using value_type = T;
+        using type       = integral_constant;   // handy alias
+
+        constexpr operator value_type() const noexcept { return value; }
+
+        [[nodiscard]] constexpr value_type operator()() const noexcept { return value; }
+    };
+
+
+    template<size_t I, typename T1, typename T2>
+    constexpr auto& get(pair<T1, T2>& p) noexcept {
+        if constexpr (I == 0) return p.first;
+        else static_assert(I == 1, "pair only has two elements");
+        return p.second;
+    }
+
+    template<size_t I, typename T1, typename T2>
+    constexpr const auto& get(const pair<T1, T2>& p) noexcept {
+        if constexpr (I == 0) return p.first;
+        else static_assert(I == 1, "pair only has two elements");
+        return p.second;
+    }
+
+    template<typename Container>
+    auto begin(Container& c) -> decltype(c.begin()) {
+        return c.begin();
+    }
+
+    template<typename Container>
+    auto end(Container& c) -> decltype(c.end()) {
+        return c.end();
+}
 }
 
 
