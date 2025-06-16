@@ -6,6 +6,9 @@
 bool islower(char c);
 char toupper(char c);
 
+#define FLAG_SET(n, f) ((n) |= (f))
+#define FLAG_UNSET(n, f) ((n) &= ~(f));
+
 EXPORT const char* strchr(const char* str, char chr);
 EXPORT char* strcpy(char* dst, const char* src);
 EXPORT unsigned strlen(const char* str);
