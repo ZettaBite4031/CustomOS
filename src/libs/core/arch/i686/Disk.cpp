@@ -132,7 +132,8 @@ bool Disk::WaitDRQ() {
         uint8_t status = m_Range->read<uint8_t>(0x7);
         if (!(status & 0x80) && (status & 0x08)) return true;
         if (status & 0x01) return false;
-        // TODO: Implement a better sleep function that's not specific to the Kernel
+        for (int j{ 0 }; j < 5000; j++)
+            ; // TODO: Implement a better sleep function that's not specific to the Kernel
     }
     return false;
 }

@@ -85,7 +85,7 @@ extern "C" void KernelEntry(BootParams* bootParams) {
 
     pci_dev_t dev;
     PCI_GetRTL8139(dev);
-    Debug::Info("Kernel Main", "RTL8139 PCI Device: Vendor: %x | Device: %x", dev.vendor_id, dev.device_id);
+    Debug::Info("Kernel Main", "RTL8139 PCI Device: Vendor: %X | Device: %X", dev.vendor_id, dev.device_id);
 
     IOAllocator KernelIOAllocator{};
     IORange disk_pio_range = KernelIOAllocator.RequestIORange(0x1F0, 8, false);
@@ -111,7 +111,7 @@ extern "C" void KernelEntry(BootParams* bootParams) {
         EoH(1);
     }
 
-    const char* file_path = "/test.txt";
+    const char* file_path = "/folder/demo.txt";
     File* test = fatfs.Open(file_path, FileOpenMode::Read);
     if (!test) {
         Debug::Critical("Kernel Main", "Failed to open %s", file_path);
@@ -121,15 +121,14 @@ extern "C" void KernelEntry(BootParams* bootParams) {
     test->Read(text_data.data(), text_data.size());
     text_data.emplace_back('\0');
     Debug::Info("Kernel Main", "%s contents:\n%s", file_path, text_data.data());
-    const char* horny_text = "Ugh I'm just soooo borrreeed~";
-    test->Write((uint8_t*)horny_text, strlen(horny_text));
+    const char* text = "I'm sooooo bored~";
+    test->Write(reinterpret_cast<const uint8_t*>(text), strlen(text));
+    test->Seek(0, SeekPos::Set);
     text_data.clear();
     text_data.resize(test->Size());
-    test->Seek(0, SeekPos::Set);
     test->Read(text_data.data(), text_data.size());
-    text_data.emplace_back('\0');
-    Debug::Info("Kernel Main", "Edited %s contents:\n%s", file_path, text_data.data());
-    test->Release();
+    text_data[text_data.size()] = '\0';
+    Debug::Info("Kernel Main", "%s contents:\n%s", file_path, text_data.data());
 
     Debug::Info("Kernel Main", "Now we sleep for 2.5 seconds and then exit!");
     sleep(2500);

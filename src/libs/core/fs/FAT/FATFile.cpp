@@ -78,10 +78,10 @@ void FATFile::Release() {
 size_t FATFile::Read(uint8_t* data, size_t count) {
     uint8_t* originalDataPtr = data;
     if (!m_IsDirectory || (m_IsDirectory && m_Size != 0))
-        count = min(count, m_Size - m_Position);
+        count = min(count, (size_t)(m_Size - m_Position));
 
     while (count > 0) {
-        uint32_t leftInBuffer = SectorSize - (m_Position % SectorSize);
+        size_t leftInBuffer = SectorSize - (m_Position % SectorSize);
         uint32_t take = min(count, leftInBuffer);
 
         Memory::Copy(data, m_Buffer + (m_Position % SectorSize), take);
@@ -120,8 +120,57 @@ size_t FATFile::Read(uint8_t* data, size_t count) {
     return data - originalDataPtr;
 }
 
-size_t FATFile::Write(const uint8_t* data, size_t size) {
-    return -1;
+size_t FATFile::Write(const uint8_t* data, size_t count) {
+    const uint8_t* originalDataPtr = data;
+
+    while (count > 0) {
+        size_t offsetInSector = m_Position % SectorSize;
+        size_t spaceInBuffer = SectorSize - offsetInSector;
+        size_t toWrite = min(count, spaceInBuffer);
+
+        if (offsetInSector != 0 || toWrite != SectorSize) {
+            if (!m_FS->ReadSectorFromCluster(m_CurrentCluster, m_Buffer, m_CurrentSectorInCluster)) {
+                Debug::Error("FATFile", "Failed to read sector for write!");
+                break;
+            }
+        }
+
+        Memory::Copy(m_Buffer + offsetInSector, data, toWrite);
+
+        if (!m_FS->WriteSectorFromCluster(m_CurrentCluster, m_Buffer, m_CurrentSectorInCluster)) {
+            Debug::Error("FATFile", "Failed to write sector!");
+            break;
+        }
+        
+        m_Position += toWrite;
+        data += toWrite;
+        count -= toWrite;
+
+        if (toWrite == spaceInBuffer) {
+            m_CurrentSectorInCluster++;
+            if (m_CurrentSectorInCluster >= m_FS->Data().BS.BootSector.SectorsPerCluster) {
+                m_CurrentSectorInCluster = 0;
+
+                uint32_t nextCluster = m_FS->GetNextCluster(m_CurrentCluster);
+                if (nextCluster >= 0xFFFFFFF8) {
+                    uint32_t newCluster = m_FS->AllocateCluster();
+                    if (!newCluster || !m_FS->LinkCluster(m_CurrentCluster, newCluster)) {
+                        Debug::Error("FATFile", "Failed to allocate new cluster!");
+                        break;
+                    }
+                    m_CurrentCluster = newCluster;
+                } else {
+                    m_CurrentCluster = nextCluster;
+                }
+            }
+        }
+
+        if (m_Position > m_Size) {
+            m_Size = m_Position;
+        }
+    }
+
+    return data - originalDataPtr;
 }
 
 bool FATFile::Seek(int rel, SeekPos pos) {
@@ -133,12 +182,12 @@ bool FATFile::Seek(int rel, SeekPos pos) {
     case SeekPos::Current:
         if (rel < 0 && m_Position < -rel)
             m_Position = 0;
-        m_Position = min(Size(), static_cast<uint32_t>(m_Position + rel));
+        m_Position = min(Size(), static_cast<size_t>(m_Position + rel));
         break;
     case SeekPos::End:
         if (rel < 0 && Size() < -rel)
             m_Position = 0;
-        m_Position = min(Size(), static_cast<uint32_t>(Size() + rel));
+        m_Position = min(Size(), static_cast<size_t>(Size() + rel));
 
     default:
         break;

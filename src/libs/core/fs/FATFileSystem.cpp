@@ -58,6 +58,9 @@ bool FATFileSystem::Initialize(BlockDevice* device) {
         return false;
     }
 
+    m_FATStart = m_Data->BS.BootSector.ReservedSectors;
+    m_TotalClusters = m_TotalSectors / m_Data->BS.BootSector.SectorsPerCluster;
+
     return true;
 }
 
@@ -99,8 +102,23 @@ bool FATFileSystem::ReadSector(uint32_t LBA, uint8_t* buffer, size_t count) {
     return true;
 }
 
+bool FATFileSystem::WriteSector(uint32_t LBA, uint8_t* buffer, size_t count) {
+    m_Device->Seek(LBA * SectorSize, SeekPos::Set);
+    size_t write = m_Device->Write(buffer, count * SectorSize);
+    size_t expected = count * SectorSize;
+    if (write != expected) {
+        Debug::Debug(LogModule, "Write Sector failed! Expected %zu, Actual: %zu", expected, write);
+        return false;
+    }
+    return true;
+}
+
 bool FATFileSystem::ReadSectorFromCluster(uint32_t cluster, uint8_t* buffer, size_t offset) {
     return ReadSector(ClusterToLBA(cluster) + offset, buffer);
+}
+
+bool FATFileSystem::WriteSectorFromCluster(uint32_t cluster, uint8_t* buffer, size_t offset) {
+    return WriteSector(ClusterToLBA(cluster) + offset, buffer);
 }
 
 uint32_t FATFileSystem::ClusterToLBA(uint32_t cluster) {
@@ -143,6 +161,45 @@ uint32_t FATFileSystem::GetNextCluster(uint32_t currentCluster) {
         nextCluster = *(uint32_t*)(m_Data->FAT_Cache + fatIndex);
     }
     return nextCluster;
+}
+
+uint32_t FATFileSystem::AllocateCluster() {
+    for (uint32_t i{ 2 }; i < m_TotalClusters; i++) {
+        if (GetFATEntry(i) == 0x0) {
+            SetFATEntry(i, 0x0FFFFFFF);
+            return i;
+        }
+    }
+
+    Debug::Error("FAT", "No free clusters available!");
+    return 0;
+}
+
+bool FATFileSystem::LinkCluster(uint32_t cluster1, uint32_t cluster2) {
+    return SetFATEntry(cluster1, cluster2);
+}
+
+uint32_t FATFileSystem::GetFATEntry(uint32_t clusterIndex) {
+    uint32_t fatOffset = clusterIndex * 4;
+    uint32_t sector = m_FATStart + (fatOffset / SectorSize);
+    uint32_t offset = fatOffset % SectorSize;
+
+    uint8_t sectorBuffer[SectorSize];
+    if (!ReadSector(sector, sectorBuffer)) return 0xFFFFFFFF;
+
+    return *(uint32_t*)(sectorBuffer + offset) & 0x0FFFFFFF; // Mask to 28 bits
+}
+
+bool FATFileSystem::SetFATEntry(uint32_t clusterIdx, uint32_t value) {
+    uint32_t fatOffset = clusterIdx * 4;
+    uint32_t sector = m_FATStart + (fatOffset / SectorSize);
+    uint32_t offset = fatOffset % SectorSize;
+
+    uint8_t sectorBuffer[SectorSize];
+    if (!ReadSector(sector, sectorBuffer)) return false;
+
+    *(uint32_t*)(sectorBuffer + offset) = (value & 0x0FFFFFFF);
+    return WriteSector(sector, sectorBuffer);
 }
 
 bool FATFileSystem::ReadFat(uint32_t lbaOffset) {
