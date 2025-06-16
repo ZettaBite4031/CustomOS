@@ -160,7 +160,8 @@ PhonyTargets(HOST_ENVIRONMENT,
              debug_stage2=['./scripts/debug_stage2.sh', HOST_ENVIRONMENT['imageType'], image[0].path],
              bochs=['./scripts/bochs.sh', HOST_ENVIRONMENT['imageType'], image[0].path],
              toolchain=['./scripts/setup_toolchain.sh', HOST_ENVIRONMENT['toolchain']],
-             hex=['./scripts/hex.sh', image[0].path])
+             hex=['./scripts/hex.sh', image[0].path],
+             lines=['./scripts/lines.sh'])
 
 Depends('run', image)
 Depends('debug', image)

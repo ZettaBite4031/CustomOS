@@ -47,7 +47,6 @@ bool FATFileSystem::Initialize(BlockDevice* device) {
             return false;
         }
     }
-    Debug::Debug(LogModule, "Successfully opened the root directory!");
 
     DetectFatType();
 

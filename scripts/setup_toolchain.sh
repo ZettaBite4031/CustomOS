@@ -2,13 +2,14 @@
 
 BINUTILS_VERSION=2.37
 GCC_VERSION=11.2.0
+NEWLIB_VERSION=4.1.0
 
 BINUTILS_URL="https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz"
 GCC_URL="https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz"
-
+NEWLIB_URL="https://sourceware.org/pub/newlib/newlib-${NEWLIB_VERSION}.tar.gz"
 # ---------------------------
 
-set -e
+set -ex
 
 TOOLCHAINS_DIR=
 OPERATION='build'
@@ -47,8 +48,20 @@ if [ "$OPERATION" = "build" ]; then
         --with-sysroot					\
         --disable-nls					\
         --disable-werror
-    make -j8 -C ${BINUTILS_BUILD}
+    make -j12 -C ${BINUTILS_BUILD}
     make -C ${BINUTILS_BUILD} install
+
+    NEWLIB_BUILD="newlib-build-${NEWLIB_VERSION}"
+
+    wget ${NEWLIB_URL}
+    tar -xf newlib-${NEWLIB_VERSION}.tar.gz
+
+    mkdir -p ${NEWLIB_BUILD}
+    cd ${NEWLIB_BUILD} && ../newlib-${NEWLIB_VERSION}/configure \
+        --target=${TARGET} \
+        --prefix=${TOOLCHAIN_PREFIX}
+    make -j12
+    make install
 
     # Download and build GCC
     GCC_SRC="gcc-${GCC_VERSION}"
@@ -62,8 +75,8 @@ if [ "$OPERATION" = "build" ]; then
         --target=${TARGET}				\
         --disable-nls					\
         --enable-languages=c,c++		\
-        --without-headers
-    make -j8 -C ${GCC_BUILD} all-gcc all-target-libgcc
+        --with-newlib
+    make -j12 -C ${GCC_BUILD} all-gcc all-target-libgcc
     make -C ${GCC_BUILD} install-gcc install-target-libgcc
 
 elif [ "$OPERATION" = "clean" ]; then
