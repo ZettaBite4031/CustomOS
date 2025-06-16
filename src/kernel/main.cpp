@@ -114,10 +114,17 @@ extern "C" void KernelEntry(BootParams* bootParams) {
     auto mac = rtl8139.GetMACAddress();
     Debug::Info("Kernel Main", "ZOS MAC: %02X:%02X:%02X:%02X:%02X:%02X",
         mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    
+    const char* test_string = "A long test string that is over sixty four bytes so the kernel doesn't crash lmaooo";
+    auto slice = std::slice<uint8_t>((uint8_t*)const_cast<char*>(test_string), strlen(test_string) + 1 /* For null byte */);
+    rtl8139.write(slice);
+    rtl8139.read([](std::slice<uint8_t> slice) {
+        Debug::Info("Kernel Main", "Packet Received! Contents: %s", slice.data());
+    });
 
 
     Debug::Info("Kernel Main", "Now we sleep for 2.5 seconds and then exit!");
-    sleep(10000);
+    sleep(2500);
     Debug::Info("Kernel Main", "We woke up!");
 
 

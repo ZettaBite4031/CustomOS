@@ -1,32 +1,7 @@
 #include "RTL8139.hpp"
 
-constexpr size_t COMMAND_REGISTER_OFFSET = 0x37;
-constexpr size_t RBSTART_OFFSET = 0x30;
-constexpr size_t RECEIVE_CONFIG_OFFSET = 0x44;
-constexpr size_t INTERRUPT_MASK_OFFSET = 0x3c;
-constexpr size_t INTERRUPT_STATUS_OFFSET = 0x3e;
-constexpr size_t TRANSMIT_CONFIG_OFFSET = 0x40;
-constexpr size_t TRANSMIT_STATUS_OFFSET = 0x10;
-constexpr size_t TRANSMIT_DATA_OFFSET = 0x20;
-constexpr size_t CAPR_OFFSET = 0x38;
-constexpr size_t CBR_OFFSET = 0x3a;
-
-template<typename T>
-T set_bits(T original, uint8_t start, uint8_t length, T value) {
-    static_assert(std::is_unsigned<T>::value, "T must be unsigned (for bit safety)");
-
-    if (length == 0 || start >= sizeof(T) * 8 || length > sizeof(T) * 8)
-        return original; // No-op or invalid
-
-    // Clamp to valid bit range
-    if (start + length > sizeof(T) * 8)
-        length = sizeof(T) * 8 - start;
-
-    T mask = ((T{1} << length) - 1) << start;
-    T shiftedValue = (value << start) & mask;
-
-    return (original & ~mask) | shiftedValue;
-}
+#include <core/arch/i686/Timer.hpp>
+#include <core/std/vector.hpp>
 
 RTL8139::RTL8139(GeneralPCIDevice* pci_dev, PCIDevice::MmapRange rtl_mmap, bool loopback) 
     : PCI{ pci_dev }, MMapRange{ rtl_mmap },m_Loopback{ loopback } {
@@ -38,7 +13,6 @@ RTL8139::RTL8139(GeneralPCIDevice* pci_dev, PCIDevice::MmapRange rtl_mmap, bool 
     pci_dev->EnableBusMastering();
 
     ResetDevice();
-    //auto receive_buf = InitReceiveBuffer();
     InitReceiveBuffer();
     InitInterrupts();
     EnableTXRX();
@@ -71,15 +45,33 @@ void RTL8139::InitReceiveBuffer() {
     SetRXBufferSize();
 }
 
+void RTL8139::ClearInterrupts() {
+    volatile uint16_t* reg = (uint16_t*)(MMapRange.start + INTERRUPT_STATUS_OFFSET);
+    uint16_t _ = *reg;
+    *reg = 0x05;
+}
+
+void RTL8139::SetInterruptMask() {
+    volatile uint16_t* int_mask_reg = (uint16_t*)(MMapRange.start + INTERRUPT_MASK_OFFSET);
+    *int_mask_reg = 0x05;
+}
+
+void RTL8139::InterruptHandler(ISR::Registers* regs, void* data) {
+    RTL8139* dev = (RTL8139*)data;
+    dev->ClearInterrupts();
+}
+
 void RTL8139::InitInterrupts() {
-    //TODO: !!!! IMPLEMENT KERNEL WIDE GENERIC INTERRUPT HANDLER
-    Debug::Critical("RTL8139", "TODO: Get a system-wide interrupt handler working");
+    uint8_t irq = PCI->GetIRQ();
+
+    IRQ::RegisterHandler(irq, InterruptHandler);
+    SetInterruptMask();
 }
 
 void RTL8139::EnableTXRX() {
     volatile uint8_t* reg = MMapRange.start + COMMAND_REGISTER_OFFSET;
     uint8_t val = *reg;
-    val = set_bits<uint8_t>(val, 2, 2, 0b11);
+    val = std::set_bits<uint8_t>(val, 2, 2, 0b11);
     *reg = val;
     uint8_t read_back = *reg;
     if (read_back != val) {
@@ -91,7 +83,7 @@ void RTL8139::EnableLoopback() {
     volatile uint32_t* tx_config_reg = (uint32_t*)(MMapRange.start + TRANSMIT_CONFIG_OFFSET);
     uint32_t config = *tx_config_reg;
 
-    config = set_bits<uint32_t>(config, 17, 2, 0b11);
+    config = std::set_bits<uint32_t>(config, 17, 2, 0b11);
 
     *tx_config_reg = config;
 
@@ -104,7 +96,7 @@ void RTL8139::EnableLoopback() {
 void RTL8139::InitReceiveConfiguration() {
     volatile uint32_t* global_rx_config_reg = (uint32_t*)(MMapRange.start + RECEIVE_CONFIG_OFFSET);
     uint32_t global_rx_config = *global_rx_config_reg;
-    global_rx_config = set_bits<uint32_t>(global_rx_config, 0, 6, 0x3F);
+    global_rx_config = std::set_bits<uint32_t>(global_rx_config, 0, 6, 0x3F);
     *global_rx_config_reg = global_rx_config;
 
     uint32_t new_val = *global_rx_config_reg;
@@ -129,12 +121,12 @@ void RTL8139::GenerateRXBuffer() {
     constexpr size_t OVERHEAD = 16;
     constexpr size_t WRAP_PADDING = 1536;
     constexpr size_t BUFFER_SIZE = DATA_SIZE + OVERHEAD + WRAP_PADDING;
-    m_RXBuffer.reserve(BUFFER_SIZE);
+    m_RXBuffer = new uint8_t[BUFFER_SIZE];
 }
 
 void RTL8139::WriteRXBufferAddress() {
     volatile uint32_t* rbstart = (uint32_t*)(MMapRange.start + RBSTART_OFFSET);
-    uint32_t address = reinterpret_cast<uint32_t>(m_RXBuffer.data());
+    uint32_t address = reinterpret_cast<uint32_t>(m_RXBuffer);
     *rbstart = address;
     uint32_t new_val = *rbstart;
     if (new_val != address) {
@@ -153,3 +145,48 @@ void RTL8139::SetRXBufferSize() {
         Debug::Critical("RTL8139", "RX Buffer Size not set!");
     }
 }
+
+void RTL8139::Wait(volatile uint16_t* capr_reg, volatile uint16_t* cbr_reg) {
+    while (true) {
+        uint16_t capr = *capr_reg;
+        capr += 16; // RTL8139 requires CAPR to be 16 bytes behind CBR
+        uint16_t cbr = *cbr_reg;
+
+        if (capr != cbr)
+            break;
+
+        sleep(1); // yield CPU
+    }
+}
+
+std::slice<uint8_t> RTL8139::GetPacket() {
+    volatile uint16_t* capr_reg = (uint16_t*)(MMapRange.start + CAPR_OFFSET);
+    volatile uint16_t* cbr_reg = (uint16_t*)(MMapRange.start + CBR_OFFSET);
+    Wait(capr_reg, cbr_reg);
+
+    uint16_t capr = *(uint16_t*)(MMapRange.start + CAPR_OFFSET);
+    uint16_t cbr = *(uint16_t*)(MMapRange.start + CBR_OFFSET);
+    uint16_t start_offset = capr + 16;
+    volatile uint16_t* header = (uint16_t*)(m_RXBuffer + start_offset);
+    header++;
+    uint16_t length = (*header) - 4;
+
+    uint16_t* start = const_cast<uint16_t*>(header) + 1;
+    std::slice<uint8_t> slice = std::slice<uint8_t>((uint8_t*)start, (size_t)length);
+    return slice;
+}
+
+
+void RTL8139::IncrementCapr() {
+    volatile uint16_t* capr_reg = (uint16_t*)(MMapRange.start + CAPR_OFFSET);
+    uint16_t capr = *capr_reg;
+    uint16_t start_offset = capr + 16;
+
+    volatile uint16_t* header = (uint16_t*)(m_RXBuffer + start_offset);
+    header++;
+    uint16_t length = *header;
+
+    capr += (length + 4 + 3) & ~0b11;
+    *capr_reg = capr;
+}
+
