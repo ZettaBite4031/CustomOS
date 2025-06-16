@@ -44,9 +44,12 @@ namespace Debug {
 
         static void DumpHex(const char* msg, const void* bin, size_t size) {
             const uint8_t* u8buf = static_cast<const uint8_t*>(bin);
-            if (msg) Debug::Info("HexDump", "%s", msg);
+            Debug::Raw("%s", g_LogSeverityColors[(int)DebugLevel::Debug]);
+            if (msg) Debug::Raw("[X] [HexDump] - %s", msg);
+            Debug::Raw(g_DefaultColor);
+            Debug::Raw("\n");
             for (size_t i{ 0 }; i < size; i+= 8) {
-                Debug::Raw("%s[X] [HexDump] - ", g_LogSeverityColors[(int)DebugLevel::Info]);
+                Debug::Raw("%s[X] [HexDump] - ", g_LogSeverityColors[(int)DebugLevel::Debug]);
                 Debug::Raw("%08x |", static_cast<unsigned int>(i));
 
                 for (size_t j{ 0 }; j < 8; j++) {
@@ -116,6 +119,7 @@ namespace Debug {
         va_list args;
         va_start(args, fmt);
         for (int i = 0; i < g_LogDevicesCount; i++) {
+            if (g_LogDevices[i].minLogLevel > DebugLevel::Debug) continue;
             g_LogDevices[i].device->VWriteF(fmt, args);
         }
         va_end(args);
