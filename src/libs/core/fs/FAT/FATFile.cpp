@@ -117,7 +117,7 @@ size_t FATFile::Read(uint8_t* data, size_t count) {
         }
     }
 
-    return originalDataPtr - data;
+    return data - originalDataPtr;
 }
 
 size_t FATFile::Write(const uint8_t* data, size_t size) {

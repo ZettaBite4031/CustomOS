@@ -19,6 +19,15 @@
 
 #include <core/std/vector.hpp>
 
+#include <core/cpp/Memory.hpp>
+#include <core/dev/MBR.hpp>
+
+#include <core/fs/FATFileSystem.hpp>
+#include <core/dev/RangeBlockDevice.hpp>
+#include <core/arch/i686/Disk.hpp>
+
+#include <core/cpp/String.hpp>
+
 #pragma region 
 // libgcc function which calls all global constructors.
 // Usually this is done in assembly, but since we skipped that part, we do it here.
@@ -29,7 +38,6 @@ extern "C" void _init();
 void __attribute__((constructor)) test_constructor() {
     Debug::Debug("Constructor", "Global Constructors called.");
 }
-#pragma endregion
 
 arch::i686::E9Device g_E9Device{};
 arch::i686::VGATextDevice g_VGADevice{};
@@ -40,6 +48,12 @@ arch::i686::VGATextDevice* GetGlobalVGADevice() {
 
 arch::i686::E9Device* GetGlobalE9Device() {
     return &g_E9Device;
+}
+#pragma endregion
+
+void EoH(int exit_code) {
+    exit(exit_code);
+    HALT;
 }
 
 // Kernel Main
@@ -73,14 +87,54 @@ extern "C" void KernelEntry(BootParams* bootParams) {
     PCI_GetRTL8139(dev);
     Debug::Info("Kernel Main", "RTL8139 PCI Device: Vendor: %x | Device: %x", dev.vendor_id, dev.device_id);
 
-    Debug::Info("Kernel Main", "Now we sleep for 10 seconds and then exit!");
-    sleep(10000);
+    IOAllocator KernelIOAllocator{};
+    IORange disk_pio_range = KernelIOAllocator.RequestIORange(0x1F0, 8, false);
+    Disk disk{ bootParams->BootDevice, &disk_pio_range, true };
+    if (!disk.Initialize()) {
+        Debug::Critical("Kernel Main", "Disk initialization failed!");
+        EoH(1);
+    }
+    
+    BlockDevice* partition;
+    RangeBlockDevice partitionRange;
+    if (bootParams->BootDevice < 0x80) {
+        partition = &disk;
+    } else {
+        MBR_entry* entry = ToLinear<MBR_entry*>(reinterpret_cast<uint32_t>(bootParams->PartitionLocation));
+        partitionRange.Initialize(&disk, entry->LBA_Start * Disk::BytesPerSector, entry->SectorCount * Disk::BytesPerSector);
+        partition = &partitionRange;
+    }
+
+    FATFileSystem fatfs;
+    if (!fatfs.Initialize(partition)) {
+        Debug::Critical("Kernel Main", "Failed to initialize FATFS");
+        EoH(1);
+    }
+
+    const char* file_path = "/test.txt";
+    File* test = fatfs.Open(file_path, FileOpenMode::Read);
+    if (!test) {
+        Debug::Critical("Kernel Main", "Failed to open %s", file_path);
+        EoH(1);
+    }
+    std::vector<uint8_t> text_data(test->Size());
+    test->Read(text_data.data(), text_data.size());
+    text_data.emplace_back('\0');
+    Debug::Info("Kernel Main", "%s contents:\n%s", file_path, text_data.data());
+    const char* horny_text = "Ugh I'm just soooo borrreeed~";
+    test->Write((uint8_t*)horny_text, strlen(horny_text));
+    text_data.clear();
+    text_data.resize(test->Size());
+    test->Seek(0, SeekPos::Set);
+    test->Read(text_data.data(), text_data.size());
+    text_data.emplace_back('\0');
+    Debug::Info("Kernel Main", "Edited %s contents:\n%s", file_path, text_data.data());
+    test->Release();
+
+    Debug::Info("Kernel Main", "Now we sleep for 2.5 seconds and then exit!");
+    sleep(2500);
     Debug::Info("Kernel Main", "We woke up!");
 
 
-    exit(0);
-
-    
-
-    HALT
+    EoH(0);
 }

@@ -42,10 +42,30 @@ File* FileSystem::Open(const char* path, FileOpenMode mode) {
     return root;
 }
 
+void GetFATName(const char* name, char shortName[12]) {
+    memset(shortName, ' ', 12);
+    shortName[11] = '\0';
+
+    const char* ext = strchr(name, '.');
+    if (ext == NULL)
+        ext = name + 11;
+
+    for (int i = 0; i < 8 && name[i] && name + i < ext; i++) 
+        shortName[i] = toupper(name[i]);
+    
+    if (ext != name + 11)
+        for (int i = 0; i < 3 && ext[i + 1]; i++)
+            shortName[i + 8] = toupper(ext[i + 1]);
+        
+}
+
 FileEntry* FileSystem::FindFile(File* dir, const char* name) {
+    char shortName[12];        
+    GetFATName(name, shortName);
     FileEntry* entry = dir->ReadFileEntry();
     while (entry) {
-        if (String::Compare(entry->Name(), name) == 0) {
+        const char* entryName = entry->Name();
+        if (Memory::Compare(entryName, shortName, 11) == 0) {
             dir->Release();
             return entry;
         }

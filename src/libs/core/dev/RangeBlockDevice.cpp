@@ -39,7 +39,6 @@ bool RangeBlockDevice::Seek(int rel, SeekPos pos) {
             ok = m_Device->Seek(m_RangeBegin + m_RangeSize, SeekPos::End);
             break;
     }
-    Debug::Debug("RangeBlockDevice - Seek", "Position: %d", m_Device->Position());
     return ok;
 }
 

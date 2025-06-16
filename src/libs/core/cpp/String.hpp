@@ -1,10 +1,18 @@
 #pragma once
 #include <core/ZosDefs.hpp>
+#include <stdint.h>
+#include <stddef.h>
+
+bool islower(char c);
+char toupper(char c);
 
 EXPORT const char* strchr(const char* str, char chr);
 EXPORT char* strcpy(char* dst, const char* src);
 EXPORT unsigned strlen(const char* str);
 EXPORT int strcmp(const char* a, const char* b);
+
+char* strdup(const char* src);
+char* strndup(const char* src, size_t size);
 
 namespace String {
     constexpr auto Find = strchr;

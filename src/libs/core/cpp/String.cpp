@@ -2,6 +2,15 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <core/cpp/Memory.hpp>
+
+bool islower(char c) {
+    return c >= 'a' && c <= 'z';
+}
+
+char toupper(char c) {
+    return islower(c) ? (c - 'a' + 'A') : c;
+}
 
 const char* strchr(const char* str, char chr) {
     if (str == NULL)
@@ -59,6 +68,20 @@ int strcmp(const char* a, const char* b) {
         ++b;
     }
     return (*a) - (*b);
+}
+
+char* strdup(const char* src) {
+    uint32_t src_len = strlen(src);
+    char* dst = new char[src_len];
+    strcpy(dst, src);
+    return dst;
+}
+
+char* strndup(const char* src, size_t size) {
+    uint32_t src_len = strlen(src);
+    char* dst = new char[src_len];
+    memcpy(dst, src, size);
+    return dst;
 }
 
 wchar_t* utf16_to_codepoint(wchar_t* string, int* codepoint) {

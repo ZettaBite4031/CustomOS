@@ -43,7 +43,7 @@ T* StaticObjectPool<T, PoolSize>::Allocate() {
 
 template <typename T, size_t PoolSize>
 void StaticObjectPool<T, PoolSize>::Free(T* obj) {
-    if (obj < m_Pool || obj >= m_Pool + PoolSize) return;
+    if (obj < m_Pool || obj >= m_Pool + PoolSize || m_PoolSize < 1) return;
 
     size_t idx = obj - m_Pool;
     m_ObjectMask[idx] = false;

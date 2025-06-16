@@ -5,6 +5,7 @@
 #include <core/std/vector.hpp>
 #include <core/std/concepts.hpp>
 
+#include <core/Debug.hpp>
 
 typedef uint16_t IOOffset;
 
@@ -15,9 +16,9 @@ public:
     IORange() : m_Address{0}, m_Length{0}, m_IsSharable{false} {}
     IORange(uint16_t addr, uint16_t len, bool share) : m_Address{addr}, m_Length{len}, m_IsSharable{share} {}
 
-    template<typename T, typename = std::enable_if_t<std::is_unsigned_v<T>>>
-    void write(IOOffset offset, T& val);
-    template<typename T, typename = std::enable_if_t<std::is_unsigned_v<T>>>
+    template<typename T>
+    void write(IOOffset offset, T val);
+    template<typename T>
     T read(IOOffset offset);
 
 private:
@@ -42,3 +43,62 @@ private:
 
     std::vector<IORange> m_AllocatedRanges{};
 };
+
+
+
+template<typename T>
+void IORange::write(IOOffset offset, T val) {
+    static_assert(std::is_unsigned<T>::value, "Only unsigned integer types allowed!");
+    static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4, "Only 8, 16, or 32-bit values are supported by IO Ports!");
+
+    if (!VerifyOffset(offset, sizeof(T))) {
+        Debug::Critical("IORange::Write", "Offset + Sizeof(T) > IORange::Length (%s + %d > %s)", offset, sizeof(T), m_Length);
+        return;
+    }
+
+    uint16_t port = m_Address + offset;
+
+    if constexpr (sizeof(T) == 1) {
+        uint8_t v = static_cast<uint8_t>(val);
+        asm volatile("outb %0, %1" : : "a"(v), "d"(port));
+    } else if constexpr (sizeof(T) == 2) {
+        uint16_t v = static_cast<uint16_t>(val);
+        asm volatile("outw %0, %1" : : "a"(v), "d"(port));
+    } else if constexpr (sizeof(T) == 4) {
+        uint32_t v = static_cast<uint32_t>(val);
+        asm volatile("outl %0, %1" : : "a"(v), "d"(port));
+    } else {
+        Debug::Critical("IORange::Write", "IO Ports do not support values larger than 32-bits!");
+    }
+    
+}
+
+template<typename T>
+T IORange::read(IOOffset offset) {
+    static_assert(std::is_unsigned<T>::value, "Only unsigned integer types allowed!");
+    static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4, "Only 8, 16, or 32-bit values are supported by IO Ports!");
+    
+    if (!VerifyOffset(offset, sizeof(T))) {
+        Debug::Critical("IORange::Read", "Offset + Sizeof(T) > IORange::Length (%s + %d > %s)", offset, sizeof(T), m_Length);
+        return static_cast<T>(-1);
+    }
+
+    uint16_t port = m_Address + offset;
+
+    if constexpr (sizeof(T) == 1) {
+        uint8_t result;
+        asm volatile("inb %1, %0" : "=a"(result) : "d"(port));
+        return static_cast<T>(result);
+    } else if constexpr (sizeof(T) == 2) {
+        uint16_t result;
+        asm volatile("inw %1, %0" : "=a"(result) : "d"(port));
+        return static_cast<T>(result);
+    } else if constexpr (sizeof(T) == 4) {
+        uint32_t result;
+        asm volatile("inl %1, %0" : "=a"(result) : "d"(port));
+        return static_cast<T>(result);
+    } 
+
+    Debug::Critical("IORange::Write", "IO Ports do not support values larger than 32-bits!");
+    return static_cast<T>(-1);
+}

@@ -1,5 +1,8 @@
 #include "TextDevice.hpp"
 
+#include <core/std/printf.hpp>
+#include <core/cpp/String.hpp>
+#include <core/cpp/Memory.hpp>
 
 enum class FormatState { 
     Normal          = 0,
@@ -16,6 +19,8 @@ enum class FormatLength {
     Long            = 3,
     LongLong        = 4,
 };
+
+
 
 TextDevice::TextDevice(CharacterDevice* dev) 
     : m_Device(dev) { }
@@ -35,136 +40,142 @@ bool TextDevice::Write(const char* str) {
 }
 
 bool TextDevice::VWriteF(const char* fmt, va_list args) {
+    constexpr size_t buf_size{ 1024 };
+    char buf[buf_size];
+    vsnprintf(buf, buf_size, fmt, args);
+    return Write(reinterpret_cast<const char*>(buf));
+    /* Old format implementation
     FormatState state = FormatState::Normal;
     FormatLength length = FormatLength::Default;
     int base = 10;
     bool ok = true;
     bool number = false;
     bool sign = false;
-
+    
     while (*fmt && ok) {
         switch (state) {
             case FormatState::Normal:
-                switch (*fmt) {
-                    case '%':   state = FormatState::Length;
-                                break;
-                    default:    ok = ok && Write(*fmt);
-                                break;
-                }
+            switch (*fmt) {
+                case '%':   state = FormatState::Length;
                 break;
-
+                default:    ok = ok && Write(*fmt);
+                break;
+            }
+            break;
+            
             case FormatState::Length:
-                switch (*fmt)
-                {
-                    case 'h':   length = FormatLength::Short;
-                                state = FormatState::LengthShort;
-                                break;
-                    case 'l':   length = FormatLength::Long;
-                                state = FormatState::LengthLong;
-                                break;
-                    default:    goto FormatState_Spec;
-                }
+            switch (*fmt)
+            {
+                case 'h':   length = FormatLength::Short;
+                state = FormatState::LengthShort;
                 break;
-
+                case 'l':   length = FormatLength::Long;
+                state = FormatState::LengthLong;
+                break;
+                default:    goto FormatState_Spec;
+            }
+            break;
+            
             case FormatState::LengthShort:
-                if (*fmt == 'h')
-                {
-                    length = FormatLength::ShortShort;
-                    state = FormatState::Spec;
-                }
-                else goto FormatState_Spec;
-                break;
-
+            if (*fmt == 'h')
+            {
+                length = FormatLength::ShortShort;
+                state = FormatState::Spec;
+            }
+            else goto FormatState_Spec;
+            break;
+            
             case FormatState::LengthLong:
-                if (*fmt == 'l')
-                {
-                    length = FormatLength::LongLong;
-                    state = FormatState::Spec;
-                }
-                else goto FormatState_Spec;
-                break;
-
+            if (*fmt == 'l')
+            {
+                length = FormatLength::LongLong;
+                state = FormatState::Spec;
+            }
+            else goto FormatState_Spec;
+            break;
+            
             case FormatState::Spec:
             FormatState_Spec:
-                switch (*fmt)
-                {
-                    case 'c':   ok = ok && Write((char)va_arg(args, int));
-                                break;
-
-                    case 's':   ok = ok && Write(va_arg(args, const char*));
-                                break;
-
-                    case '%':   ok = ok && Write('%');
-                                break;
-
-                    case 'd':
-                    case 'i':   base = 10; sign = true; number = true;
-                                break;
-
-                    case 'u':   base = 10; sign = false; number = true;
-                                break;
-
-                    case 'X':
-                    case 'x':
-                    case 'p':   base = 16; sign = false; number = true;
-                                break;
-
-                    case 'o':   base = 8; sign = false; number = true;
-                                break;
-
-                    // ignore invalid spec
-                    default:    break;
-                }
-
-                if (number) {
-                    if (sign) {
-                        switch (length) {
+            switch (*fmt)
+            {
+                case 'c':   ok = ok && Write((char)va_arg(args, int));
+                break;
+                
+                case 's':   ok = ok && Write(va_arg(args, const char*));
+                break;
+                
+                case '%':   ok = ok && Write('%');
+                break;
+                
+                case 'd':
+                case 'i':   base = 10; sign = true; number = true;
+                break;
+                
+                case 'u':   base = 10; sign = false; number = true;
+                break;
+                
+                case 'X':
+                case 'x':
+                case 'p':   base = 16; sign = false; number = true;
+                break;
+                
+                case 'o':   base = 8; sign = false; number = true;
+                break;
+                
+                // ignore invalid spec
+                default:    break;
+            }
+            
+            if (number) {
+                if (sign) {
+                    switch (length) {
                         case FormatLength::ShortShort:
                         case FormatLength::Short:
                         case FormatLength::Default:     
-                            ok = ok && Write(va_arg(args, int), base);
-                            break;
-
+                        ok = ok && Write(va_arg(args, int), base);
+                        break;
+                        
                         case FormatLength::Long:        
-                            ok = ok && Write(va_arg(args, long), base);
-                            break;
-
+                        ok = ok && Write(va_arg(args, long), base);
+                        break;
+                        
                         case FormatLength::LongLong:    
-                            ok = ok && Write(va_arg(args, long long), base);
-                            break;
-                        }
-                    } else {
-                        switch (length) {
+                        ok = ok && Write(va_arg(args, long long), base);
+                        break;
+                    }
+                } else {
+                    switch (length) {
                         case FormatLength::ShortShort:
                         case FormatLength::Short:
                         case FormatLength::Default:     
-                            ok = ok && Write(va_arg(args, unsigned int), base);
-                            break;
-                                                        
+                        ok = ok && Write(va_arg(args, unsigned int), base);
+                        break;
+                        
                         case FormatLength::Long:        
-                            ok = ok && Write(va_arg(args, unsigned  long), base);
-                            break;
-
+                        ok = ok && Write(va_arg(args, unsigned  long), base);
+                        break;
+                        
                         case FormatLength::LongLong:    
-                            ok = ok && Write(va_arg(args, unsigned  long long), base);
-                            break;
-                        }
+                        ok = ok && Write(va_arg(args, unsigned  long long), base);
+                        break;
                     }
                 }
-
-                // reset state
-                state = FormatState::Normal;
-                length = FormatLength::Default;
-                sign = false;
-                base = 10;
-                number = false;
-                break;
+            }
+            
+            // reset state
+            state = FormatState::Normal;
+            length = FormatLength::Default;
+            sign = false;
+            base = 10;
+            number = false;
+            break;
         }
-
+        
         fmt++;
     }
-
+    
     return ok;
+    */
 }
 
 bool TextDevice::WriteF(const char* fmt, ...) {

@@ -1,4 +1,6 @@
 #pragma once
+#ifndef VECTOR_HPP
+#define VECTOR_HPP
 
 #include <stdint.h>
 #include <stddef.h>
@@ -7,14 +9,14 @@
 #include <core/std/Utility.hpp>
 #include <core/Assert.hpp>
 
-void* operator new(long unsigned int, void* placement) {
-    return placement;
-}
-
 namespace std {
     template<typename T, bool destruct = true>
     class vector {
-        public:
+    public:
+        static void* operator new(long unsigned int, void* placement) {
+            return placement;
+        }
+
         constexpr vector() = default;
 
         constexpr explicit vector(size_t count) {
@@ -74,12 +76,13 @@ namespace std {
             if (_size == _capacity) {
                 reserve(((_capacity + 1) * 3) >> 1);
             }
-            
-            T* const item{ new (reinterpret_cast<void*>(std::addressof(_data[_size]))) T(std::forward<params>(p)...) };
+            T* placement = std::addressof(_data[_size]);
+            T* const item = new T(std::forward<params>(p)...);
+            Memory::Copy(placement, item, sizeof(T));
             _size++;
             return *item;
         }
-        
+            
         constexpr void resize(size_t new_size) {
             static_assert(std::is_default_constructible<T>::value, "Type must be default-constructible");
             
@@ -261,7 +264,9 @@ namespace std {
             return std::addressof(_data[_size]);
         }
         
-        private:
+        
+
+    private:
         constexpr void move(vector& o) {
             _capacity = o._capacity;
             _size = o._size;
@@ -297,3 +302,4 @@ namespace std {
         T* _data{nullptr};
     };
 }
+#endif
