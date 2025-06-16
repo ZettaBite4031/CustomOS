@@ -50,7 +50,7 @@ namespace Debug {
                 Debug::Raw("%08x |", static_cast<unsigned int>(i));
 
                 for (size_t j{ 0 }; j < 8; j++) {
-                    if (i + j < size) Debug::Raw(" %02x", u8buf[i + j]);
+                    if (i + j < size) Debug::Raw(" %02X", u8buf[i + j]);
                     else Debug::Raw("   ");
                     if (j % 4 == 3 && j % 4 != 0) Debug::Raw(" ");
                 }
