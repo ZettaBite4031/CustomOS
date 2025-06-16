@@ -41,6 +41,32 @@ namespace Debug {
                 device->Write('\n');
             }
         }
+
+        static void DumpHex(const char* msg, const void* bin, size_t size) {
+            const uint8_t* u8buf = static_cast<const uint8_t*>(bin);
+            if (msg) Debug::Info("HexDump", "%s", msg);
+            for (size_t i{ 0 }; i < size; i+= 8) {
+                Debug::Raw("%s[X] [HexDump] - ", g_LogSeverityColors[(int)DebugLevel::Info]);
+                Debug::Raw("%08x |", static_cast<unsigned int>(i));
+
+                for (size_t j{ 0 }; j < 8; j++) {
+                    if (i + j < size) Debug::Raw(" %02x", u8buf[i + j]);
+                    else Debug::Raw("   ");
+                    if (j % 4 == 3 && j % 4 != 0) Debug::Raw(" ");
+                }
+
+                Debug::Raw(" | ");
+                for (size_t j = 0; j < 8; ++j) {
+                    if (i + j < size) {
+                        uint8_t c = u8buf[i + j];
+                        Debug::Raw("%c", (c >= 32 && c <= 126) ? c : '.');
+                    }
+                }
+
+                Debug::Raw(g_DefaultColor);
+                Debug::Raw("\n");
+            }
+        }
     };
 
     void AddOutputDevice(TextDevice* device, DebugLevel minLogLevel, bool useTextColor) {
@@ -84,6 +110,19 @@ namespace Debug {
         va_start(args, fmt);
         log(DebugLevel::Critical, module, fmt, args);
         va_end(args);
+    }
+
+    void Raw(const char* fmt, ...) {
+        va_list args;
+        va_start(args, fmt);
+        for (int i = 0; i < g_LogDevicesCount; i++) {
+            g_LogDevices[i].device->VWriteF(fmt, args);
+        }
+        va_end(args);
+    }
+
+    void HexDump(const char* msg, const void* bin, size_t size) {
+        DumpHex(msg, bin, size);
     }
 
 }

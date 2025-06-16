@@ -18,4 +18,7 @@ namespace Debug {
     void Warn(const char* module, const char* fmt, ...);
     void Error(const char* module, const char* fmt, ...);
     void Critical(const char* module, const char* fmt, ...);
+    void Raw(const char* fmt, ...);
+
+    void HexDump(const char* msg, const void* bin, size_t size);
 }
