@@ -9,7 +9,7 @@ namespace arch {
 
         size_t E9Device::Write(const uint8_t* data, size_t size) {
             for (int i = 0; i < size; i++) 
-                OutPort(0xE9, data[i]);
+                OutPortB(0xE9, data[i]);
             return size;
         }
     }
