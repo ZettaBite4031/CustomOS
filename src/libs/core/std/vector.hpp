@@ -301,5 +301,35 @@ namespace std {
         size_t _size{0};
         T* _data{nullptr};
     };
-}
+
+    template<typename T>
+    class slice {
+    public:
+        using value_type = T;
+        using iterator = T*;
+        using const_iterator = const T*;
+
+        slice(T* data, size_t size) 
+            : _data(data), _size(size) {}
+
+        T& operator[](size_t index) { return _data[index]; }
+        const T& operator[](size_t index) const { return _data[index]; }
+
+        size_t size() const { return _size; }
+        bool empty() const { return _size == 0; }
+
+        T* data() { return _data; }
+        const * data() const { return _data; }
+
+        iterator begin() { return _data; }
+        iterator end() { return _data; }
+
+        const_iterator begin() const { return _data; }
+        const_iterator end() const { return _data; }
+
+    private:
+        T* _data;
+        size_t size;
+    }
+} // namespace std
 #endif
