@@ -1,5 +1,7 @@
 #pragma once
 
+#include <core/std/concepts.hpp>
+
 namespace std {
 
     template<typename T> struct remove_reference        { using type = T; };
@@ -129,7 +131,8 @@ namespace std {
     template<typename Container>
     auto end(Container& c) -> decltype(c.end()) {
         return c.end();
-}
+    }
+    
 }
 
 

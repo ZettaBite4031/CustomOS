@@ -319,7 +319,7 @@ namespace std {
         bool empty() const { return _size == 0; }
 
         T* data() { return _data; }
-        const * data() const { return _data; }
+        const T* data() const { return _data; }
 
         iterator begin() { return _data; }
         iterator end() { return _data; }
@@ -329,7 +329,7 @@ namespace std {
 
     private:
         T* _data;
-        size_t size;
-    }
+        size_t _size;
+    };
 } // namespace std
 #endif
