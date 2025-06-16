@@ -1,6 +1,6 @@
 #include "GDT.hpp"
 
-GDTEntry g_CppGDT[3]{};
+GDT::GDTEntry g_CppGDT[3]{};
 GDT::GDTDesc g_CppGDTDesc{};
 
 #define GDT_LIMIT_LOW(limit)                (uint8_t)(limit & 0xFFFF)
@@ -17,20 +17,6 @@ GDT::GDTDesc g_CppGDTDesc{};
     GDT_FLAGS_LIMIT_HI(limit, flags),           \
     GDT_BASE_HIGH(base)                         \
 }
-
-struct GDTEntry {
-    uint16_t LimitLow;
-    uint16_t BaseLow;
-    uint8_t BaseMiddle;
-    uint8_t Access;
-    uint8_t FlagsLimitHigh;
-    uint8_t BaseHigh;
-} PACKED;
-
-struct GDTDesc {
-    uint16_t limit;
-    GDTEntry* GDT;
-} PACKED;
 
 enum Access : uint8_t {
     CodeReadable = 0x02,
@@ -65,17 +51,17 @@ enum Flags : uint8_t {
 void GDT::Default() {
     g_CppGDT[0] = GDT_ENTRY(0, 0, Ring0, Bits16);
     g_CppGDT[1] = GDT_ENTRY(0, 0xFFFF, 
-                Present | Ring0 | CodeSegment | CodeReadable,
+                Present | Ring0 | Access::CodeSegment | CodeReadable,
                 Bits32 | Granularity4K);
     g_CppGDT[2] = GDT_ENTRY(0, 0xFFFF,
-                Present | Ring0 | DataSegment | DataWritable,
+                Present | Ring0 | Access::DataSegment | DataWritable,
                 Bits32 | Granularity4K);
 
     g_CppGDTDesc = { sizeof(g_CppGDT) - 1, &g_CppGDT[0] };
 }
 
 void GDT::Load() {
-    arch::i686::LoadGDT(&g_CppGDTDesc, CodeSegment, 0x10);
+    arch::i686::LoadGDT(&g_CppGDTDesc, GDT::CodeSegment, 0x10);
 }
 
 void GDT::LoadDefaults() {
