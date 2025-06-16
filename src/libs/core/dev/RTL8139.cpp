@@ -40,7 +40,7 @@ RTL8139::RTL8139(GeneralPCIDevice* pci_dev, PCIDevice::MmapRange rtl_mmap, bool 
     ResetDevice();
     //auto receive_buf = InitReceiveBuffer();
     InitReceiveBuffer();
-    //TODO: !!!! IMPLEMENT KERNEL WIDE GENERIC INTERRUPT HANDLER -> InitInterrupts();
+    InitInterrupts();
     EnableTXRX();
 
     if (m_Loopback) EnableLoopback();
@@ -72,7 +72,8 @@ void RTL8139::InitReceiveBuffer() {
 }
 
 void RTL8139::InitInterrupts() {
-
+    //TODO: !!!! IMPLEMENT KERNEL WIDE GENERIC INTERRUPT HANDLER
+    Debug::Critical("RTL8139", "TODO: Get a system-wide interrupt handler working");
 }
 
 void RTL8139::EnableTXRX() {

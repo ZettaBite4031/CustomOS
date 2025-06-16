@@ -54,9 +54,11 @@ EXPORT void ASMCALL ISRSHandler(ISR::Registers* regs) {
 EXPORT void ISR_Initialize();
 
 void ISR::Init() {
+    Debug::Info("ISR", "Beginning ISR initialization");
     ISR_Initialize();
     for (int i = 0; i < 256; i++)
         IDT::EnableGate(i);
+    Debug::Info("ISR", "ISR initialization successful");
 }
 
 void ISR::RegisterHandler(int interrupt, ISRHandler handler) {

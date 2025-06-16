@@ -82,7 +82,7 @@ LoadGDT:
     push eax
     push .ReloadCS
     retf
-    .ReloadCS
+    .ReloadCS:
 
     ; reload data segment
     mov ax, [ebp + 16]
@@ -101,7 +101,7 @@ LoadGDT:
 global LoadIDT
 LoadIDT:
     push ebp
-    pop ebp, esp
+    mov ebp, esp
 
     mov eax, [ebp + 8]
     lidt [eax]
@@ -138,7 +138,7 @@ ISRWrapper%1:
     jmp ISR_Common
 %endmacro
 
-%include "core/arch/i686/genISRS.inc"
+%include "arch/i686/genISRS.inc"
 
 ISR_Common:
     pusha

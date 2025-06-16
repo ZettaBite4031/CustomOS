@@ -1,5 +1,7 @@
 #include "GDT.hpp"
 
+#include <core/Debug.hpp>
+
 GDT::GDTEntry g_CppGDT[3]{};
 GDT::GDTDesc g_CppGDTDesc{};
 
@@ -62,6 +64,7 @@ void GDT::Default() {
 
 void GDT::Load() {
     arch::i686::LoadGDT(&g_CppGDTDesc, GDT::CodeSegment, 0x10);
+    Debug::Info("GDT", "GDT Loaded successfully!");
 }
 
 void GDT::LoadDefaults() {

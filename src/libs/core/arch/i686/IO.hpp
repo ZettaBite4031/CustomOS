@@ -12,8 +12,15 @@ namespace arch {
         EXPORT uint16_t ASMCALL InPortW(uint16_t port);
         EXPORT void ASMCALL OutPortL(uint16_t port, uint32_t value);
         EXPORT uint32_t ASMCALL InPortL(uint16_t port);
-
+        
+        EXPORT void ASMCALL DisableInterrupts();
+        EXPORT void ASMCALL EnableInterrupts();
 
         EXPORT void ASMCALL PANIC();
+
+        EXPORT void ASMCALL LoadGDT(void* desc, uint16_t cs, uint16_t ds);
+        EXPORT void ASMCALL LoadIDT(void* desc);
+
+        EXPORT void ASMCALL IOWait();
     }
 }

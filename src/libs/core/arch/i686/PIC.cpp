@@ -53,7 +53,6 @@ bool i8259Driver::Probe() {
 }
 
 void i8259Driver::Initialize(uint8_t offset1, uint8_t offset2, bool autoEOI) {
-    m_Name = strdup("8259 PIC");;
     this->SetMask(0xFFFF);
 
     // Initialization Control Word 1
@@ -130,3 +129,8 @@ void i8259Driver::SetMask(int mask) {
     IOWait();
 }
 
+static const i8259Driver g_i8259{};
+
+const i8259Driver* i8259Driver::GetDriver() {
+    return &g_i8259;
+}

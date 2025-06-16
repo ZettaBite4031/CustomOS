@@ -4,6 +4,8 @@
 
 #include "IO.hpp"
 
+#include <core/Debug.hpp>
+
 
 IDT::IDTEntry g_CppIDT[256];
 IDT::IDTDesc g_CppIDTDesc = { sizeof(g_CppIDT) - 1, &g_CppIDT[0] };
@@ -26,4 +28,5 @@ void IDT::DisableGate(int interrupt) {
 
 void IDT::Load() {
     arch::i686::LoadIDT(&g_CppIDTDesc);
+    Debug::Info("IDT", "IDT Loaded successfully!");
 }

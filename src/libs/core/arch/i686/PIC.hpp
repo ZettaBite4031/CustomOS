@@ -16,6 +16,8 @@ public:
 
 class i8259Driver : public PICDriver {
 public:
+    static const i8259Driver* GetDriver();
+
     virtual bool Probe() override;
     virtual void Initialize(uint8_t offset1, uint8_t offset2, bool autoEOI) override;
     virtual void Disable() override;
@@ -25,7 +27,6 @@ public:
     virtual const char* Name() override { return "8259 PIC"; }
 
 private:
-    static const char* m_Name;
 
     const uint16_t PIC1CommandPort{ 0x20 };
     const uint16_t PIC1DataPort{ 0x21 };
