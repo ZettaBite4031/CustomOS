@@ -72,10 +72,10 @@ namespace arch {
 
         void VGATextDevice::SetCursor(int x, int y) {
             int pos = y * ScreenWidth + x;
-            OutPort(0x3D4, 0x0F);
-            OutPort(0x3D5, (uint8_t)(pos & 0xFF));
-            OutPort(0x3D4, 0x0E);
-            OutPort(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
+            OutPortB(0x3D4, 0x0F);
+            OutPortB(0x3D5, (uint8_t)(pos & 0xFF));
+            OutPortB(0x3D4, 0x0E);
+            OutPortB(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
         }
 
         void VGATextDevice::Scroll(int lines) {
