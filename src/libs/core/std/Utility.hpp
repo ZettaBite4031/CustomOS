@@ -133,6 +133,21 @@ namespace std {
         return c.end();
     }
     
+    template<typename T>
+    constexpr T htons(T v) {
+        static_assert(std::is_unsigned<T>::value, "htons only supports unsigned types!");
+
+        T res = 0;
+        for (size_t i{ 0 }; i < sizeof(T); i++) {
+            res |= ((v >> (i * 8)) & static_cast<T>(0xFF)) << ((sizeof(T) - 1 - i) * 8); 
+        }
+        return res;
+    }
+
+    template<typename T>
+    constexpr T ntohs(T v) {
+        return htons(v);
+    }
 }
 
 

@@ -25,6 +25,8 @@
 #include <core/arch/i686/Timer.hpp>
 #include <core/arch/i686/RTC.hpp>
 
+#include <core/net/Net.hpp>
+
 #pragma region 
 // libgcc function which calls all global constructors.
 // Usually this is done in assembly, but since we skipped that part, we do it here.
@@ -117,10 +119,35 @@ extern "C" void KernelEntry(BootParams* bootParams) {
     
     const char* test_string = "A long test string that is over sixty four bytes so the kernel doesn't crash lmaooo";
     auto slice = std::slice<uint8_t>((uint8_t*)const_cast<char*>(test_string), strlen(test_string) + 1 /* For null byte */);
-    rtl8139.write(slice);
-    rtl8139.read([](std::slice<uint8_t> slice) {
-        Debug::Info("Kernel Main", "Packet Received! Contents: %s", slice.data());
-    });
+    //rtl8139.write(slice);
+    while (true) {
+        rtl8139.read([rtl8139](Net::Payload packet) {
+            Net::ParsedEthernetFrame frame = Net::ParsePacket(packet);
+            switch (frame.packet->Type()) {
+            case Net::PacketType::Arp: {
+                Net::ArpFrame* packet = (Net::ArpFrame*)frame.packet;
+                switch (packet->GetOperation()) {
+                case Net::ArpFrame::ArpOperation::Request: {
+                    uint8_t temp_mac[6];
+                    uint8_t temp_ip[4];
+                    memcpy(temp_mac, packet->GetSenderHardwareAddr(), 6);
+                    memcpy(temp_ip, packet->GetSenderProtocolAddr(), 4);
+                    memcpy(packet->GetSenderProtocolAddr(), packet->GetTargetProtocolAddr(), 4);
+                    memcpy(packet->GetSenderHardwareAddr(), rtl8139.GetMACAddress().data(), 6);
+                    memcpy(packet->GetTargetHardwareAddr(), temp_mac, 6);
+                    memcpy(packet->GetTargetProtocolAddr, temp_ip, 4);
+                    // TODO: Refactor this into a params struct or something to generate ARP Frames and Ethernet Frames into byte pointers or something it's 12:30 and I'm tired, boss.
+                } break;
+                case Net::ArpFrame::ArpOperation::Reply: {
+                    Debug::Error("Kernel Main", "ARP replies have not been implemented yet!");
+                } break;
+                default: break;
+                } 
+            } break;
+            default: break;
+            }
+        });
+    }
 
 
     Debug::Info("Kernel Main", "Now we sleep for 2.5 seconds and then exit!");
