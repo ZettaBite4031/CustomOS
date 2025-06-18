@@ -309,6 +309,7 @@ namespace std {
         using iterator = T*;
         using const_iterator = const T*;
 
+        slice() : _data(nullptr), _size(0) {}
         slice(T* data, size_t size) 
             : _data(data), _size(size) {}
 
