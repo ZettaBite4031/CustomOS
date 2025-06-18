@@ -7,3 +7,4 @@ bx_enh_dbg.ini
 __pycache__/
 kernel_C/
 *.old
+network.dump
