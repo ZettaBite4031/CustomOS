@@ -46,6 +46,14 @@ char* strcpy(char* dst, const char* src) {
     return origDst;
 }
 
+char* strncpy(char* dst, const char* src, size_t n) {
+    size_t i;
+    for (i = 0; i < n && src[i] != '\0'; i++)
+        dst[i] = src[i];
+    for (; i < n; i++) dst[i] = '\0';
+    return dst;
+}
+
 unsigned strlen(const char* str) {
     unsigned len = 0;
     while (*str) {
@@ -54,6 +62,12 @@ unsigned strlen(const char* str) {
     }
 
     return len;
+}
+
+size_t strnlen(const char* str, size_t n) {
+    size_t i;
+    for (i = 0; i < n && str[i] != '\0'; i++);
+    return i;
 }
 
 int strcmp(const char* a, const char* b) {
@@ -68,6 +82,17 @@ int strcmp(const char* a, const char* b) {
         ++b;
     }
     return (*a) - (*b);
+}
+
+int strncmp(const char* a, const char* b, size_t n) {
+    size_t i;
+    for (i = 0; i < n; i++) {
+        uint8_t c1 = (uint8_t)a[i];
+        uint8_t c2 = (uint8_t)b[i];
+        if (c1 != c2) return (int)c1 - (int)c2;
+        if (c1 == '\0') return 0;
+    }
+    return 0;
 }
 
 char* strdup(const char* src) {
