@@ -26,7 +26,6 @@ void* realloc(void* ptr, uint32_t new_size);
 void* recalloc(void* ptr, uint32_t new_size);
 
 void* malloc_aligned(uint32_t size, uint32_t alignment);
-void free_aligned(void* ptr);
 
 template<typename T>
 uint32_t ToSegOffset(T addr) {

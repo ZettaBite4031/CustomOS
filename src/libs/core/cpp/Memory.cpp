@@ -1,13 +1,6 @@
 #include "Memory.hpp"
 #include <core/Debug.hpp>
 
-typedef struct block_header {
-    uint32_t size;
-    bool free;
-    struct block_header* next;
-    struct block_header* prev;
-} block_header_t;
-
 uint32_t get_alignment(void* ptr) {
     uintptr_t a = (uintptr_t)ptr;
     // take the lowest set bit of a, up to 64:
@@ -15,152 +8,158 @@ uint32_t get_alignment(void* ptr) {
     return (align > 64 ? 64 : align);
 }
 
+
+struct Block {
+    uint32_t size;
+    bool free;
+    Block* next;
+    Block* prev;
+};
+
 extern uint32_t KERNEL_START;
 extern uint32_t KERNEL_END;
-extern block_header_t MEMORY_BEGIN; 
 
-static block_header_t* free_list = NULL;
+static Block* g_FreeList = nullptr;
 
-MemoryRegion find_suitable_region(MemoryInfo* mem_info) {
-    MemoryRegion alloc_block = {0};
-    for (int i = 0; i < mem_info->BlockCount; i++) {
-        MemoryRegion block = mem_info->Regions[i];
-        if (block.Length > alloc_block.Length && block.Type != 0x2 && block.Begin == (uint32_t)&KERNEL_START) alloc_block = block;
+MemoryRegion FindBestRegion(MemoryInfo* info) {
+    uintptr_t kernel_start = (uintptr_t)&KERNEL_START;
+    uintptr_t kernel_end   = (uintptr_t)&KERNEL_END;
+
+    MemoryRegion best = {0};
+
+    for (size_t i = 0; i < info->BlockCount; ++i) {
+        MemoryRegion region = info->Regions[i];
+
+        if (region.Type != 1) continue; // Only usable RAM
+
+        uintptr_t start = region.Begin;
+        uintptr_t end   = region.Begin + region.Length;
+
+        // Skip region entirely if it ends before or starts after the kernel
+        if (end <= kernel_start || start >= kernel_end) {
+            // No overlap with kernel at all, fully usable
+            if (region.Length > best.Length)
+                best = region;
+        }
+        // If region overlaps kernel partially or fully
+        else {
+            // Adjust the region to start after the kernel ends
+            if (start < kernel_end && end > kernel_end) {
+                uintptr_t adjusted_start = kernel_end;
+                uintptr_t adjusted_length = end - kernel_end;
+                if (adjusted_length > best.Length) {
+                    best.Begin = adjusted_start;
+                    best.Length = adjusted_length;
+                    best.Type = region.Type;
+                }
+            }
+            // Region starts inside kernel or exactly where kernel starts (fully unusable portion)
+            // e.g., region.Begin == kernel_start and end <= kernel_end
+            // => skip it because no usable memory left
+        }
     }
-    return alloc_block;
+
+    return best;
 }
 
+
 bool Mem_Init(MemoryInfo* mem_info) {
-    MemoryRegion region = find_suitable_region(mem_info);
-    if (region.Length == 0) {
-        Debug::Critical("MemInit", "Could not find suitable region for the allocator!");
-        return false;
-    }
+    MemoryRegion best = FindBestRegion(mem_info);
 
-    uint32_t kernel_start_addr = (uint32_t)&KERNEL_START;
-    uint32_t kernel_end_addr = (uint32_t)&KERNEL_END;
-    uint32_t reserved_kernel_length = (kernel_end_addr - kernel_start_addr);
-    uint32_t segment_size = region.Length - reserved_kernel_length - sizeof(block_header_t);
+    g_FreeList = (Block*)(best.Begin);
+    memset(g_FreeList, 0x00, sizeof(Block));
+    g_FreeList->size = best.Length - sizeof(Block);
+    g_FreeList->free = true;
+    g_FreeList->next = nullptr;
+    g_FreeList->prev = nullptr;
 
-    free_list = &MEMORY_BEGIN;
-    free_list->size = segment_size;
-    free_list->free = true;
-    free_list->next = NULL;
-    free_list->prev = NULL;
-
+    Debug::Info("MemInit", "Memory initialized with region [%08X - %08X] (%dMB)", best.Begin, best.Begin + best.Length, best.Length / 1024 / 1024);
     return true;
 }
 
 void* malloc_aligned(uint32_t size, uint32_t alignment) {
-    block_header_t* current = free_list;
+    Block* current = g_FreeList;
 
     while (current) {
-        if (current->free) {
-            uintptr_t block_addr = (uintptr_t)current;
-            uintptr_t raw_user_start = block_addr + sizeof(block_header_t) + sizeof(void*);
-            uintptr_t user_start = ALIGN_UP(raw_user_start, alignment);
-            uintptr_t total_size = (user_start + size) - block_addr;
+        if (!current->free) {
+            current = current->next;
+            continue;
+        }
 
-            if (current->size >= total_size) {
-                // If enough room to split
-                if (current->size > total_size + sizeof(block_header_t)) {
-                    block_header_t* new_block = (block_header_t*)(block_addr + total_size);
-                    new_block->size = current->size - total_size - sizeof(block_header_t) - sizeof(void*);
-                    new_block->free = true;
-                    new_block->prev = current;
-                    
-                    if (current->next) current->next->prev = new_block;
-                    current->next = new_block;
-                    current->size = total_size - sizeof(block_header_t);
-                }
+        uintptr_t raw_block = (uintptr_t)current;
+        uintptr_t user_data = ALIGN_UP(raw_block + sizeof(Block) + sizeof(void*), alignment);
+        uintptr_t block_end = user_data + size;
+        uintptr_t total_size = block_end - raw_block;
 
-                current->free = false;
+        if (current->size >= total_size) {
+            if (current->size >= total_size + sizeof(Block) + 8) {
+                Block* split = (Block*)(raw_block + total_size);
+                split->size = current->size - total_size;
+                split->free = true;
+                split->next = current->next;
+                split->prev = current;
 
-                // Store backref to header before aligned region
-                uintptr_t backref_addr = user_start - sizeof(void*);
-                *((block_header_t**)backref_addr) = current;
-
-                return (void*)user_start;
+                if (current->next) current->next->prev = split;
+                current->next = split;
+                current->size = total_size - sizeof(Block);
             }
+
+            current->free = false;
+            uintptr_t backref = user_data - sizeof(void*);
+            *((Block**)backref) = current;
+            return (void*)user_data;
         }
         current = current->next;
     }
 
-    return NULL; // no suitable block found
-}
-
-void* malloc(uint32_t size) {
-    return malloc_aligned(size, get_alignment(free_list));
-}
-
-void* calloc(uint32_t size) {
-    void* ptr = malloc(size);
-    if (!ptr) return NULL;
-    memset(ptr, 0, size);
-    return ptr;
+    return nullptr;
 }
 
 void free(void* ptr) {
-    free_aligned(ptr);
-}
-
-void free_aligned(void* ptr) {
     if (!ptr) return;
 
-    uintptr_t user_ptr = (uintptr_t)ptr;
-    block_header_t* block = *((block_header_t**)(user_ptr - sizeof(void*)));
+    uintptr_t backref = (uintptr_t)ptr - sizeof(void*);
+    Block* block = *((Block**)backref);
     block->free = true;
 
-    // Coalesce with next
-    if (block->next && block->next->free) {
-        block->size += sizeof(block_header_t) + block->next->size;
+    if (block->next && block->next > block && block->next->free) {
+        block->size += sizeof(Block) + block->next->size;
         block->next = block->next->next;
         if (block->next) block->next->prev = block;
     }
 
-    // Coalesce with prev
     if (block->prev && block->prev->free) {
-        block->prev->size += sizeof(block_header_t) + block->size;
+        block->prev->size += sizeof(Block) + block->size;
         block->prev->next = block->next;
-        
         if (block->next) block->next->prev = block->prev;
-        block = block->prev;
     }
 }
 
 void* realloc(void* ptr, uint32_t new_size) {
-    if (!ptr) return malloc(new_size);
-
-    if (!new_size) {
+    if (!ptr) return malloc_aligned(new_size, 8);
+    
+    if (new_size == 0) {
         free(ptr);
-        return NULL;
+        return nullptr;
     }
 
-    uintptr_t user_ptr = (uintptr_t)ptr;
-    block_header_t* block = *((block_header_t**)(user_ptr - sizeof(void*)));
+    uintptr_t backref = (uintptr_t)ptr - sizeof(void*);
+    Block* block = *((Block**)backref);
+    if (block->size >= new_size) return ptr;
 
-    if (block->size >= new_size) {
-        size_t excess = block->size - new_size;
-
-        if (excess >= sizeof(block_header_t) + sizeof(void*)) {
-            block_header_t* new_block = (block_header_t*)((uint8_t*)block + sizeof(block_header_t) + new_size + sizeof(void*));
-            new_block->size = excess - sizeof(block_header_t) - sizeof(void*);
-            new_block->free = true;
-            new_block->next = block->next;
-            new_block->prev = block;
-
-            if (block->next) block->next->prev = new_block;
-            block->next = new_block;
-            block->size = new_size;
+    if (block->next && block->next->free) {
+        uint32_t combined_size = block->size + sizeof(Block) + block->next->size;
+        if (combined_size >= new_size) {
+            Block* next = block->next;
+            block->size = combined_size;
+            block->next = next->next;
+            if (next->next) next->next->prev = block;
+            return ptr;
         }
-
-        // No need to move since it was shrunk in-place
-        return ptr;
     }
 
-    // Old block is not large enough. 
-    void* new_ptr = malloc(new_size);
-    if (!new_ptr) return NULL;
+    void* new_ptr = malloc_aligned(new_size, 8);
+    if (!new_ptr) return nullptr;
 
     memcpy(new_ptr, ptr, block->size);
     free(ptr);
@@ -168,61 +167,22 @@ void* realloc(void* ptr, uint32_t new_size) {
     return new_ptr;
 }
 
-void* recalloc(void* ptr, uint32_t new_size) {
-    ptr = realloc(ptr, new_size);
-    if (!ptr) return NULL;
-    memset(ptr, 0, new_size);
+void* malloc(uint32_t size) {
+    return malloc_aligned(size, 8);
+}
+
+void* calloc(uint32_t size) {
+    void* ptr = malloc(size);
+    if (!ptr) return nullptr;
+    memset(ptr, 0x00, size);
     return ptr;
 }
 
-void dump_heap() {
-    block_header_t* current = free_list;
-    int index = 0;
-
-    uint32_t payload_used = 0;
-    uint32_t payload_free = 0;
-    uint32_t overhead_header = 0;
-    uint32_t overhead_ptr    = 0;
-
-    Debug::Info("Heap Dump", "==========================");
-
-    while (current) {
-        // Block range [header .. header+sizeof(header)+current->size)
-        void*   hdr_start = (void*)current;
-        void*   hdr_end   = (uint8_t*)current + sizeof(block_header_t) + current->size;
-        bool    is_free   = current->free;
-        const char* state = is_free ? "FREE" : "USED";
-
-        Debug::Info("Heap Dump",
-                "Block %d: %s | Size: %u | Range: %p – %p",
-                index++, state,
-                current->size,
-                hdr_start,
-                hdr_end);
-
-        // Count payload vs. overhead
-        overhead_header += sizeof(block_header_t);
-
-        if (is_free) {
-            payload_free += current->size;
-        } else {
-            // subtract backref pointer; ignore alignment-padding in this stat
-            payload_used += current->size - sizeof(void*);
-            overhead_ptr   += sizeof(void*);
-        }
-
-        current = current->next;
-    }
-
-    uint32_t total_payload  = payload_used + payload_free;
-    uint32_t total_overhead = overhead_header + overhead_ptr;
-
-    Debug::Info("Heap Dump", "Total Payload Used: %u bytes", payload_used);
-    Debug::Info("Heap Dump", "Total Payload Free: %u bytes", payload_free);
-    Debug::Info("Heap Dump", "Total Header Overhead: %u bytes", overhead_header);
-    Debug::Info("Heap Dump", "Total Pointer Overhead: %u bytes", overhead_ptr);
-    Debug::Info("Heap Dump", "Grand Total: %u bytes", total_payload + total_overhead);
-    Debug::Info("Heap Dump", "==========================");
+void* recalloc(void* ptr, uint32_t new_size) {
+    void* new_ptr = realloc(ptr, new_size);
+    if (!new_ptr) return nullptr;
+    memset(new_ptr, 0x00, new_size);
+    return ptr;
 }
 
 void* operator new(size_t size) {
@@ -246,7 +206,7 @@ void* operator new(size_t size, size_t align) {
 }
 
 void operator delete(void* ptr, size_t align) {
-    free_aligned(ptr);
+    free(ptr);
 }
 
 void* operator new[](size_t size, size_t align) {
@@ -254,9 +214,28 @@ void* operator new[](size_t size, size_t align) {
 }
 
 void operator delete[](void* ptr, size_t align) {
-    free_aligned(ptr);
+    free(ptr);
 }
 
 void operator delete(void*, void* ptr) {
     // Do nothing
+}
+
+void DumpHeap() {
+    Debug::Info("Allocator", "================ HEAP DUMP ================");
+    Block* current = g_FreeList;
+    int index = 0;
+    size_t total_free = 0, total_used = 0;
+
+    while (current) {
+        const char* status = current->free ? "free" : "used";
+        Debug::Info("Allocator", "#%02d - Addr: %p | Size: %08zu | Status: %s", index++, current, current->size, status);
+        if (current->free) total_free += current->size;
+        else total_used += current->size;
+        current = current->next;
+    }
+
+    Debug::Info("Allocator", "Total Used: %zu bytes (%zuMB)", total_used, total_used / 1024 / 1024);
+    Debug::Info("Allocator", "Total Free: %zu bytes (%zuMB)", total_free, total_free / 1024 / 1024);
+    Debug::Info("Allocator", "================ HEAP DUMP ================");
 }
