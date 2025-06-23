@@ -112,48 +112,24 @@ extern "C" void KernelEntry(BootParams* bootParams) {
     GeneralPCIDevice rtl8139_pci = rtl8139_dev.Upgrade();
     PCIDevice::MmapRange rtl8139_mmap{ rtl8139_pci.FindMmapRange() };
 
-    RTL8139 rtl8139{ &rtl8139_pci, rtl8139_mmap, true };
+    RTL8139 rtl8139{ &rtl8139_pci, rtl8139_mmap, false };
     auto mac = rtl8139.GetMACAddress();
     Debug::Info("Kernel Main", "ZOS MAC: %02X:%02X:%02X:%02X:%02X:%02X",
         mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     
-    const char* test_string = "A long test string that is over sixty four bytes so the kernel doesn't crash lmaooo";
-    auto slice = std::slice<uint8_t>((uint8_t*)const_cast<char*>(test_string), strlen(test_string) + 1 /* For null byte */);
-    //rtl8139.write(slice);
+    
     while (true) {
-        rtl8139.read([rtl8139](Net::Payload packet) {
-            Net::ParsedEthernetFrame frame = Net::ParsePacket(packet);
-            switch (frame.packet->Type()) {
-            case Net::PacketType::Arp: {
-                Net::ArpFrame* packet = (Net::ArpFrame*)frame.packet;
-                switch (packet->GetOperation()) {
-                case Net::ArpFrame::ArpOperation::Request: {
-                    uint8_t temp_mac[6];
-                    uint8_t temp_ip[4];
-                    memcpy(temp_mac, packet->GetSenderHardwareAddr(), 6);
-                    memcpy(temp_ip, packet->GetSenderProtocolAddr(), 4);
-                    memcpy(packet->GetSenderProtocolAddr(), packet->GetTargetProtocolAddr(), 4);
-                    memcpy(packet->GetSenderHardwareAddr(), rtl8139.GetMACAddress().data(), 6);
-                    memcpy(packet->GetTargetHardwareAddr(), temp_mac, 6);
-                    memcpy(packet->GetTargetProtocolAddr, temp_ip, 4);
-                    // TODO: Refactor this into a params struct or something to generate ARP Frames and Ethernet Frames into byte pointers or something it's 12:30 and I'm tired, boss.
-                } break;
-                case Net::ArpFrame::ArpOperation::Reply: {
-                    Debug::Error("Kernel Main", "ARP replies have not been implemented yet!");
-                } break;
-                default: break;
-                } 
-            } break;
-            default: break;
-            }
-        });
+        std::vector<uint8_t> data;
+        Net::GetPacket(data, &rtl8139);
+        if (strncmp(reinterpret_cast<const char*>(data.data()), "quit", 4) == 0) break;
+        Debug::Info("Kernel Main", "Received: %.*s", data.size() - 1, data.data());
     }
 
+    
 
     Debug::Info("Kernel Main", "Now we sleep for 2.5 seconds and then exit!");
     sleep(2500);
     Debug::Info("Kernel Main", "We woke up!");
-
 
     EoH(0);
 }
