@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stddef.h>
 #include "stdio.h"
 #include "disk.h"
 #include "mbr.h"
@@ -6,7 +7,6 @@
 #include "memdefs.h"
 #include "memory.h"
 #include "vbe.h"
-#include <stddef.h>
 #include "zosdefs.h"
 #include "debug.h"
 #include "elf.h"

@@ -1,25 +1,22 @@
 #include <stdint.h>
 #include <core/ZosDefs.hpp>
+#include <boot/bootparams.h>
 #include <core/cpp/System.hpp>
 #include <hal/hal.hpp>
 
-#include <boot/bootparams.h>
-
 #include <core/Debug.hpp>
 
-#include <core/std/vector.hpp>
-
+#include <core/cpp/String.hpp>
 #include <core/cpp/Memory.hpp>
 #include <core/dev/MBR.hpp>
+
+#include <core/std/vector.hpp>
 
 #include <core/fs/FATFileSystem.hpp>
 #include <core/dev/RangeBlockDevice.hpp>
 #include <core/arch/i686/Disk.hpp>
 
-#include <core/cpp/String.hpp>
-
 #include <core/arch/i686/PCI.hpp>
-
 #include <core/dev/RTL8139.hpp>
 
 #include <core/arch/i686/Timer.hpp>
@@ -117,15 +114,12 @@ extern "C" void KernelEntry(BootParams* bootParams) {
     Debug::Info("Kernel Main", "ZOS MAC: %02X:%02X:%02X:%02X:%02X:%02X",
         mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     
-    
     while (true) {
         std::vector<uint8_t> data;
         Net::GetPacket(data, &rtl8139);
         if (strncmp(reinterpret_cast<const char*>(data.data()), "quit", 4) == 0) break;
         Debug::Info("Kernel Main", "Received: %.*s", data.size() - 1, data.data());
     }
-
-    
 
     Debug::Info("Kernel Main", "Now we sleep for 2.5 seconds and then exit!");
     sleep(2500);
