@@ -24,7 +24,7 @@ public:
 
     template<typename T>
     void write(std::slice<T>& packet) {
-        if (packet.size() < 64) {
+        if (packet.size() < 60) {
             Debug::Error("RTL8139", "Packet is too small!");
             return;
         }

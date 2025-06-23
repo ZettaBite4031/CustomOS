@@ -23,6 +23,8 @@ RTL8139::RTL8139(GeneralPCIDevice* pci_dev, PCIDevice::MmapRange rtl_mmap, bool 
     InitCapr();
 }
 
+static constexpr size_t BUFFER_SIZE = 64 * 1024 + 16 + 1536;
+
 std::vector<uint8_t> RTL8139::GetMACAddress() {
     std::vector<uint8_t> mac{ 6 };
     for (int i = 0; i < 6; i++) {
@@ -36,7 +38,7 @@ void RTL8139::ResetDevice() {
     uint8_t value = *command_reg;
     value |= (1 << 4);
     *command_reg = value;
-    while((*command_reg) & 0x08) {}
+    while((*command_reg) & 0x08) sleep(1);
 }
 
 void RTL8139::InitReceiveBuffer() {
@@ -117,11 +119,8 @@ void RTL8139::InitCapr() {
 }
 
 void RTL8139::GenerateRXBuffer() {
-    constexpr size_t DATA_SIZE = 64 * 1024;
-    constexpr size_t OVERHEAD = 16;
-    constexpr size_t WRAP_PADDING = 1536;
-    constexpr size_t BUFFER_SIZE = DATA_SIZE + OVERHEAD + WRAP_PADDING;
     m_RXBuffer = new uint8_t[BUFFER_SIZE];
+    memset(m_RXBuffer, 0x00, BUFFER_SIZE);
 }
 
 void RTL8139::WriteRXBufferAddress() {
@@ -164,29 +163,39 @@ std::slice<uint8_t> RTL8139::GetPacket() {
     volatile uint16_t* cbr_reg = (uint16_t*)(MMapRange.start + CBR_OFFSET);
     Wait(capr_reg, cbr_reg);
 
-    uint16_t capr = *(uint16_t*)(MMapRange.start + CAPR_OFFSET);
-    uint16_t cbr = *(uint16_t*)(MMapRange.start + CBR_OFFSET);
-    uint16_t start_offset = capr + 16;
-    volatile uint16_t* header = (uint16_t*)(m_RXBuffer + start_offset);
-    header++;
-    uint16_t length = (*header) - 4;
+    uint16_t capr = *capr_reg;
+    uint16_t start_offset = (capr + 16) % BUFFER_SIZE;
 
-    uint16_t* start = const_cast<uint16_t*>(header) + 1;
-    std::slice<uint8_t> slice = std::slice<uint8_t>((uint8_t*)start, (size_t)length);
-    return slice;
+
+    uint16_t status, length;
+
+    memcpy(&status, m_RXBuffer + start_offset, sizeof(status));
+    memcpy(&length, m_RXBuffer + start_offset + 2, sizeof(length));
+
+    if (length == 0 || length > 1600) {
+        Debug::Error("RTL8139", "Invalid packet length: %u", length);
+        return {};
+    }
+
+    if ((start_offset + length + 4) > BUFFER_SIZE) {
+        Debug::Error("RTL8139", "Packet exceeds RX Buffer bounds: offset=%u, len=%u", start_offset, length);
+        return {};
+    }
+
+    uint8_t* payload = m_RXBuffer + start_offset + 4;
+    return std::slice<uint8_t>(payload, length);
 }
 
 
 void RTL8139::IncrementCapr() {
     volatile uint16_t* capr_reg = (uint16_t*)(MMapRange.start + CAPR_OFFSET);
     uint16_t capr = *capr_reg;
-    uint16_t start_offset = capr + 16;
+    uint16_t start_offset = (capr + 16) % BUFFER_SIZE;
 
-    volatile uint16_t* header = (uint16_t*)(m_RXBuffer + start_offset);
-    header++;
-    uint16_t length = *header;
+    uint16_t length;
+    memcpy(&length, m_RXBuffer + start_offset + 2, sizeof(length));
 
-    capr += (length + 4 + 3) & ~0b11;
+    capr = (capr + ((length + 4 + 3) & ~0b11)) & 0xFFFF;
     *capr_reg = capr;
 }
 
