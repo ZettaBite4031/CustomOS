@@ -3,7 +3,7 @@
 
 <p align="center">
 <img src="https://img.shields.io/badge/Version-v0.0.1a-red" alt="Version 0.0.1 ALPHA">
-<img src="https://img.shields.io/badge/Last Commit-March 29th-green" alt="Most recent commit was March 29th, 2025">
+<img src="https://img.shields.io/badge/Last Commit-September 4th-green" alt="Most recent commit was September 4th, 2025">
 <img src="https://img.shields.io/badge/License-MIT-blue" alt="MIT license!">
 <img src="https://img.shields.io/badge/Lines-8800+-green" alt="Currently over 8,800 lines of code!">
 </p>
