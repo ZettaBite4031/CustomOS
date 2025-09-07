@@ -7,9 +7,10 @@
 FATFileEntry::FATFileEntry()
     : m_FS(), m_DirEntry() {}
 
-void FATFileEntry::Initialize(FATFileSystem* fs, const FAT_DirectoryEntry& dirEntry) {
+void FATFileEntry::Initialize(FATFileSystem* fs, const FAT_DirectoryEntry& dirEntry, uint32_t parentDirCluster) {
     m_FS = fs;
     m_DirEntry = dirEntry;
+    m_ParentDirCluster = parentDirCluster;
 }
 
 void FATFileEntry::Release() {
@@ -24,7 +25,7 @@ File* FATFileEntry::Open(FileOpenMode mode) {
     }
 
     uint32_t firstCluster = m_DirEntry.FirstClusterLow + ((uint32_t)m_DirEntry.FirstClusterHigh << 16);
-    if (!file->Open(m_FS, firstCluster, Name(), m_DirEntry.Size, m_DirEntry.Attributes & FAT_ATTRIBUTE_DIRECTORY)) {
+    if (!file->Open(m_FS, firstCluster, Name(), m_DirEntry.Size, m_DirEntry.Attributes & FAT_ATTRIBUTE_DIRECTORY, m_ParentDirCluster)) {
         Debug::Error("FatFileEntry", "Failed to open file!");
         m_FS->ReleaseFile(file);
         return nullptr;

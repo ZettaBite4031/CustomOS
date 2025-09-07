@@ -29,6 +29,14 @@ public:
     FATFileEntry* AllocateFileEntry();
     void ReleaseFileEntry(FATFileEntry* entry);
 
+    bool FlushFAT();
+    bool UpdateFileEntrySize(FATFile* file, size_t size);
+
+    bool SetNextCluster(uint32_t cluster, uint32_t next);
+    bool FreeCluster(uint32_t cluster);
+
+    bool FreeClusterChain(uint32_t cluster);
+
 private:
     bool ReadBootSector();
     void DetectFatType();
@@ -37,6 +45,9 @@ private:
 
     uint32_t GetFATEntry(uint32_t clusterIdx);
     bool SetFATEntry(uint32_t clusterIdx, uint32_t value);
+
+    bool ReadFATSector(uint32_t sector);
+    bool WriteFATSector(uint32_t sector);
 
     BlockDevice* m_Device;
     FAT_Data* m_Data;

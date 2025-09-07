@@ -8,7 +8,7 @@ class FATFileSystem;
 class FATFileEntry : public FileEntry {
 public:
     FATFileEntry();
-    void Initialize(FATFileSystem* fs, const FAT_DirectoryEntry& dirEntry);
+    void Initialize(FATFileSystem* fs, const FAT_DirectoryEntry& dirEntry, uint32_t parentDirCluster);
     virtual File* Open(FileOpenMode mode) override;
     virtual void Release() override;
 
@@ -18,4 +18,5 @@ public:
 private:
     FATFileSystem* m_FS;
     FAT_DirectoryEntry m_DirEntry;
+    uint32_t m_ParentDirCluster = 0;
 };

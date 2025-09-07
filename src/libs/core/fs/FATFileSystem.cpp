@@ -220,3 +220,134 @@ FATFileEntry* FATFileSystem::AllocateFileEntry() {
 void FATFileSystem::ReleaseFileEntry(FATFileEntry* entry) {
     m_Data->FileEntryPool.Free(entry);
 }
+
+bool FATFileSystem::FlushFAT() {
+    auto& bs = Data().BS.BootSector;
+    uint32_t sectorsPerFAT = (bs.FatCount > 0) ? (bs.FatCount * bs.SectorsPerFat) : 0;
+
+    if (sectorsPerFAT == 0) {
+        Debug::Error("FATFileSystem", "Invalid SectorsPerFat");
+        return false;
+    }
+
+    // Assume FAT_Cache stores FatCacheSize sectors starting at FAT_CachePosition sector
+    for (size_t i = 0; i < FatCacheSize; i++) {
+        uint32_t sectorToWrite = Data().FAT_CachePosition + i;
+        if (!WriteSector(bs.ReservedSectors + sectorToWrite, &Data().FAT_Cache[i * SectorSize])) {
+            Debug::Error("FatFileSystem", "Failed to write FAT sector %u", sectorToWrite);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool FATFileSystem::UpdateFileEntrySize(FATFile* file, size_t size) {
+    if (file->m_IsRootDir) {
+        // for file entries in the root dir
+        uint32_t rootDirStart = file->m_FirstCluster;
+        uint32_t rootDirSectors = (Data().BS.BootSector.DirEntryCount * sizeof(FAT_DirectoryEntry)) / SectorSize;
+
+        uint8_t sectorBuffer[SectorSize];
+        for (uint32_t sector = 0; sector < rootDirSectors; sector++) {
+            uint32_t sectorLBA = rootDirStart + sector;
+            if (!ReadSector(sectorLBA, sectorBuffer)) {
+                Debug::Error("FATFileSystem", "Failed to read root dir sector %u", sectorLBA);
+                return false;
+            }
+
+            FAT_DirectoryEntry* entries = reinterpret_cast<FAT_DirectoryEntry*>(sectorBuffer);
+            size_t entryCount = SectorSize / sizeof(FAT_DirectoryEntry);
+            for (size_t i = 0; i < entryCount; i++) {
+                uint32_t firstCluster = entries[i].FirstClusterLow + ((uint32_t)entries[i].FirstClusterHigh << 16);
+                if (firstCluster == file->m_FirstCluster) {
+                    entries[i].Size = size;
+                    if (!WriteSector(sectorLBA, sectorBuffer)) {
+                        Debug::Error("FATFileSystem", "Failed to write updated root sector: %u", sectorLBA);
+                        return false;
+                    }
+                    return true;
+                }
+            }
+        }
+        Debug::Error("FATFileSystem", "File entry not found in root directory!");
+        return false;
+    } else {
+        // file entries not in root die (subdirs)
+        uint32_t cluster = file->GetParentDirCluster();
+        uint32_t sectorsPerCluster = Data().BS.BootSector.SectorsPerCluster;
+        uint8_t sectorBuffer[SectorSize];
+
+        while (cluster < 0xFFFFFFF8) {
+            for (uint32_t sectorInCluster = 0; sectorInCluster < sectorsPerCluster; sectorInCluster++) {
+                if (!ReadSectorFromCluster(cluster, sectorBuffer, sectorInCluster)) {
+                    Debug::Error("FATFileSystem", "Failed to read dir sector %u in cluster %u", sectorInCluster, cluster);
+                    return false;
+                }
+
+                FAT_DirectoryEntry* entries = reinterpret_cast<FAT_DirectoryEntry*>(sectorBuffer);
+                size_t entryCount = SectorSize / sizeof(FAT_DirectoryEntry);
+                for (size_t i = 0; i < entryCount; i++) {
+                    uint32_t firstCluster = entries[i].FirstClusterLow + ((uint32_t)entries[i].FirstClusterHigh << 16);
+                    if (firstCluster == file->m_FirstCluster) {
+                        entries[i].Size = size;
+                        if (!WriteSectorFromCluster(cluster, sectorBuffer, sectorInCluster)) {
+                            Debug::Error("FATFileSystem", "Failed to write updated dir sector %u in cluster %u", sectorInCluster, cluster);
+                            return false;
+                        }
+                        return true;
+                    }
+                }
+            }
+            cluster = GetNextCluster(cluster);
+        }
+        Debug::Error("FATFileSystem", "File entry not found in this directory!");
+        return false;
+    }
+}
+
+bool FATFileSystem::SetNextCluster(uint32_t cluster, uint32_t next) {
+    uint32_t fatOffset = cluster * 4;
+    uint32_t sector = m_Data->BS.BootSector.ReservedSectors + (fatOffset / SectorSize);
+    uint32_t offsetInSector = fatOffset % SectorSize;
+
+    if (!ReadFATSector(sector)) return false;
+
+    uint8_t* fat = m_Data->FAT_Cache;
+    *reinterpret_cast<uint32_t*>(&fat[offsetInSector]) = next & 0x0FFFFFFF;
+
+    return WriteFATSector(sector);
+}
+
+bool FATFileSystem::FreeCluster(uint32_t cluster) {
+    return SetNextCluster(cluster, 0x00000000);
+}
+
+bool FATFileSystem::ReadFATSector(uint32_t sector) {
+    if (m_Data->FAT_CachePosition == sector) return true;
+    if (!ReadSector(sector, m_Data->FAT_Cache)) return false;
+
+    m_Data->FAT_CachePosition = sector;
+    return true;
+}
+
+bool FATFileSystem::WriteFATSector(uint32_t sector) {
+    return WriteSector(sector, m_Data->FAT_Cache);
+}
+
+bool FATFileSystem::FreeClusterChain(uint32_t cluster) {
+    while (cluster < 0x0FFFFFF8) {
+        uint32_t next = GetNextCluster(cluster);
+
+        if (!SetNextCluster(cluster, 0x00000000)) {
+            Debug::Error("FATFileSystem", "Failed to free cluster 0x%08X", cluster);
+            return false;
+        }
+
+        if (next >= 0x0FFFFFF8) break;
+
+        cluster = next;
+    }
+
+    return true;
+}

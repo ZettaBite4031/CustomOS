@@ -10,7 +10,7 @@ class FATFile : public File {
 public:
     FATFile();
 
-    bool Open(FATFileSystem* fs, uint32_t firstCluster, const char* name, uint32_t size, bool isDirectory);
+    bool Open(FATFileSystem* fs, uint32_t firstCluster, const char* name, uint32_t size, bool isDirectory, uint32_t parentDirCluster = 0);
     bool OpenRootDirectory1216(FATFileSystem* fs, uint32_t rootDirLba, uint32_t rootDirSize);
     bool IsOpened() const { return m_Opened; }
 
@@ -26,6 +26,11 @@ public:
     virtual size_t Position() override { return m_Position; }
     virtual size_t Size() override { return m_Size; }
 
+    virtual bool Resize(size_t size) override;
+    virtual bool EraseContents() override;
+
+    uint32_t GetParentDirCluster() const { return m_ParentDirCluster; }
+
 private:
     bool UpdateCurrentCluster();
 
@@ -34,10 +39,13 @@ private:
     bool m_Opened;
     bool m_IsRootDir;
     bool m_IsDirectory;
+    uint32_t m_ParentDirCluster;
     uint32_t m_FirstCluster;
     uint32_t m_CurrentCluster;
     uint32_t m_CurrentClusterIdx;
     uint32_t m_CurrentSectorInCluster;
     uint32_t m_Position;
     uint32_t m_Size;
+
+    friend class FATFileSystem;
 };

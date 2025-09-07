@@ -83,18 +83,20 @@ extern "C" void KernelEntry(BootParams* bootParams) {
         Debug::Critical("Kernel Main", "Failed to initialize FATFS");
         EoH(1);
     }
-    
-    /* { // File system demo
+
+    { // File system demo
         const char* file_path = "/folder/demo.txt";
         File* test = fatfs.Open(file_path, FileOpenMode::Read);
         if (!test) {
             Debug::Critical("Kernel Main", "Failed to open %s", file_path);
             EoH(1);
         }
-        std::vector<uint8_t> text_data(test->Size());
-        test->Read(text_data.data(), text_data.size());
-        text_data.emplace_back('\0');
+        std::vector<uint8_t> text_data(test->Size() + 1);
+        test->Read(text_data.data(), test->Size());
+        text_data[test->Size()] = '\0';
         Debug::Info("Kernel Main", "%s contents:\n%s", file_path, text_data.data());
+        test->EraseContents();
+        test->Seek(0, SeekPos::Set);
         const char* text = "I'm sooooo bored~";
         test->Write(reinterpret_cast<const uint8_t*>(text), strlen(text));
         test->Seek(0, SeekPos::Set);
@@ -103,7 +105,8 @@ extern "C" void KernelEntry(BootParams* bootParams) {
         test->Read(text_data.data(), text_data.size());
         text_data[text_data.size()] = '\0';
         Debug::Info("Kernel Main", "%s contents:\n%s", file_path, text_data.data());
-    } */
+        test->Release();
+    } 
 
     IORange pci_io{ KernelIOAllocator.RequestIORange(PCI::PCI_CONFIG_ADDRESS, 8, false) };
     PCI pci{ &pci_io };
