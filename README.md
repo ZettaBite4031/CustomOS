@@ -3,7 +3,7 @@
 
 <p align="center">
 <img src="https://img.shields.io/badge/Version-v0.0.1a-red" alt="Version 0.0.1 ALPHA">
-<img src="https://img.shields.io/badge/Last Commit-March 29th-green" alt="Most recent commit was March 29th, 2025">
+<img src="https://img.shields.io/badge/Last Commit-September 4th-green" alt="Most recent commit was September 4th, 2025">
 <img src="https://img.shields.io/badge/License-MIT-blue" alt="MIT license!">
 <img src="https://img.shields.io/badge/Lines-8800+-green" alt="Currently over 8,800 lines of code!">
 </p>
@@ -75,7 +75,7 @@ Next we need a toolchain. If you already have one, make sure you specify its pat
 
 ## Booting & Running
 Once everything is installed and setup, though, all you need to do is just `scons run` and you should see zOS appear on your screen.\
- It will look like it freezes, but at the moment, it's just waiting for UDP messages, so connect to localhost:6002 with any UDP sender, and you should see it echo back your messages! You can use `quit` to exit the receive loop. 
+ It will look like it freezes, but at the moment, it's just waiting for UDP messages, so connect to localhost:6001 with any UDP sender, and you should see it echo back your messages! You can use `quit` to exit the receive loop. 
 
 Now you're all setup to mess around with it! I'll happily accept any contributions.
 
