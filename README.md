@@ -115,7 +115,7 @@ A few features and goals that could be added by myself or you! <sub>no guarantee
 ### Goals
 - [ ] Memory Virtualization
     - [ ] SWAP memory
-    - [x] MMU alive and worked
+    - [x] MMU alive and working
 - [ ] Keyboard Interface
 - [ ] Proper disk read/write for file system interactions
     - [ ] FAT
