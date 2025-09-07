@@ -101,17 +101,23 @@ uint32_t GeneralPCIDevice::FindIOBase() {
     return 0;
 }
 
-PCIDevice::MmapRange GeneralPCIDevice::FindMmapRange() {
+PCIDevice::MmapRange GeneralPCIDevice::FindMmapRange(PagingManager& KernelPagingManger) {
     for (int i = 0; i < 5; i++) {
         uint8_t reg_off = 4 + i;
         uint32_t base_address = ReadRegister(reg_off);
         if ((base_address & 0x1) == 0 && base_address > 0) {
-            uint8_t* start = (uint8_t*)(base_address & ~0b1111);
+            uintptr_t phys_start = base_address & ~0xFULL;
+            
             WriteRegister(reg_off, ~0);
             uint32_t end_address = ReadRegister(reg_off);
-            size_t length = ~(end_address & ~0b1111) + 1;
+
+            size_t length = ~(end_address & ~0xFULL) + 1;
             WriteRegister(reg_off, base_address);
-            return { start, length };
+
+            uintptr_t virt_start = 0xF0000000 + (i * 0x100000);
+            KernelPagingManger.MapRange(phys_start, virt_start, length, PAGE_PRESENT | PAGE_READWRITE);
+
+            return { reinterpret_cast<uint8_t*>(virt_start), length };
         }
     }
 

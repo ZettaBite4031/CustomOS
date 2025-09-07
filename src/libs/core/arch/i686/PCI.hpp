@@ -6,6 +6,8 @@
 #include "IOAllocator.hpp"
 #include <core/std/vector.hpp>
 
+#include <core/arch/i686/PagingManager.hpp>
+
 class PCIDevice;
 
 class PCI {
@@ -70,7 +72,7 @@ public:
     GeneralPCIDevice(PCIDevice* base);
 
     uint32_t FindIOBase();
-    MmapRange FindMmapRange();
+    MmapRange FindMmapRange(PagingManager& KernelPagingManager);
     uint8_t GetIRQ();
 
     void EnableBusMastering() override { m_Base->EnableBusMastering(); };

@@ -63,17 +63,15 @@ MemoryRegion FindBestRegion(MemoryInfo* info) {
 }
 
 
-bool Mem_Init(MemoryInfo* mem_info) {
-    MemoryRegion best = FindBestRegion(mem_info);
-
-    g_FreeList = (Block*)(best.Begin);
+bool Mem_Init(uintptr_t heap_base, const MemoryRegion& best_region) {
+    g_FreeList = (Block*)(heap_base);
     memset(g_FreeList, 0x00, sizeof(Block));
-    g_FreeList->size = best.Length - sizeof(Block);
+    g_FreeList->size = best_region.Length - sizeof(Block);
     g_FreeList->free = true;
     g_FreeList->next = nullptr;
     g_FreeList->prev = nullptr;
 
-    Debug::Info("MemInit", "Memory initialized with region [%08X - %08X] (%dMB)", best.Begin, best.Begin + best.Length, best.Length / 1024 / 1024);
+    Debug::Info("MemInit", "Memory initialized! Region [%08X - %08X] (%dMB)", best_region.Begin, best_region.Begin + best_region.Length, best_region.Length / 1024 / 1024);
     return true;
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 #include <boot/bootparams.h>
+#include <core/arch/i686/PagingManager.hpp>
 
 // Hardware Abstraction Layer Initialization function
-void HAL_Initialize(BootParams* bootparams);
+PagingManager HAL_Initialize(BootParams* bootparams);

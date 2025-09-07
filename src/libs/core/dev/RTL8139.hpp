@@ -11,9 +11,12 @@
 
 #include <core/arch/i686/Timer.hpp>
 
+#include <core/arch/i686/PagingManager.hpp>
+
+
 class RTL8139 {
 public:
-    RTL8139(GeneralPCIDevice* pci_dev, PCIDevice::MmapRange rtl_mmap, bool loopback = false);
+    RTL8139(GeneralPCIDevice* pci_dev, PCIDevice::MmapRange rtl_mmap, PagingManager* kernel_paging_manager, bool loopback = false);
 
     template<typename Func>
     void read(Func on_read) {
@@ -74,7 +77,8 @@ private:
 
     template<typename T>
     void TransmitAndWait(volatile uint32_t* data_ptr, volatile uint32_t* status_ptr, std::slice<T>& packet) {
-        *data_ptr = (uint32_t)packet.data();
+        uintptr_t phys_addr = KernelPagingManager->VirtToPhys((uintptr_t)packet.data());
+        *data_ptr = (uint32_t)phys_addr;
 
         uint32_t status = *status_ptr;
         status = std::set_bits<uint32_t>(status, 0, 12, packet.size());
@@ -94,6 +98,8 @@ private:
     GeneralPCIDevice* PCI{ nullptr };
     PCIDevice::MmapRange MMapRange{ nullptr, 0 };
     bool m_Loopback{ false };
-    uint8_t* m_RXBuffer;
+    uint8_t* m_RXBufferPhys{ nullptr };
+    uint8_t* m_RXBufferVirt{ nullptr };
     uint32_t m_TransmitIndex{ 0 };
+    PagingManager* KernelPagingManager{ nullptr };
 };

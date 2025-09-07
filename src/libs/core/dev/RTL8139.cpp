@@ -1,10 +1,11 @@
 #include "RTL8139.hpp"
 
 #include <core/arch/i686/Timer.hpp>
+#include <core/arch/i686/FrameAllocator.hpp>
 #include <core/std/vector.hpp>
 
-RTL8139::RTL8139(GeneralPCIDevice* pci_dev, PCIDevice::MmapRange rtl_mmap, bool loopback) 
-    : PCI{ pci_dev }, MMapRange{ rtl_mmap },m_Loopback{ loopback } {
+RTL8139::RTL8139(GeneralPCIDevice* pci_dev, PCIDevice::MmapRange rtl_mmap, PagingManager* kernel_paging_manager, bool loopback) 
+    : PCI{ pci_dev }, MMapRange{ rtl_mmap }, KernelPagingManager{ kernel_paging_manager },m_Loopback{ loopback } {
     if (MMapRange.length != 256) {
         Debug::Critical("RTL8139", "Memory map range not 256! Actual: %u", MMapRange.length);
         return;
@@ -119,17 +120,29 @@ void RTL8139::InitCapr() {
 }
 
 void RTL8139::GenerateRXBuffer() {
-    m_RXBuffer = new uint8_t[BUFFER_SIZE];
-    memset(m_RXBuffer, 0x00, BUFFER_SIZE);
+    constexpr size_t num_pages = (BUFFER_SIZE + PAGE_SIZE - 1) / PAGE_SIZE;
+    m_RXBufferPhys = (uint8_t*)FrameAllocator::AllocateContiguous(num_pages);
+
+    if (!m_RXBufferPhys) {
+        Debug::Critical("RTL8139", "Failed to allocate RXBufferPhys contiguous memory!");
+        m_RXBufferVirt = nullptr;
+        return;
+    }
+
+    constexpr uintptr_t RXBUF_VIRTUAL_BASE = 0xC0400000;
+    KernelPagingManager->MapRange(reinterpret_cast<uintptr_t>(m_RXBufferPhys), RXBUF_VIRTUAL_BASE, num_pages * PAGE_SIZE, PAGE_PRESENT | PAGE_READWRITE);
+    m_RXBufferVirt = reinterpret_cast<uint8_t*>(RXBUF_VIRTUAL_BASE);
+    Memory::Set(m_RXBufferVirt, 0x00, num_pages * PAGE_SIZE); 
 }
 
 void RTL8139::WriteRXBufferAddress() {
     volatile uint32_t* rbstart = (uint32_t*)(MMapRange.start + RBSTART_OFFSET);
-    uint32_t address = reinterpret_cast<uint32_t>(m_RXBuffer);
-    *rbstart = address;
+    
+    *rbstart = reinterpret_cast<uint32_t>(m_RXBufferPhys);
+
     uint32_t new_val = *rbstart;
-    if (new_val != address) {
-        Debug::Critical("RTL8139", "RX Buffer Address not set!");
+    if (new_val != reinterpret_cast<uintptr_t>(m_RXBufferPhys)) {
+        Debug::Critical("RTL8139", "Failed to set RX Buffer address!");
     }
 }
 
@@ -166,11 +179,10 @@ std::slice<uint8_t> RTL8139::GetPacket() {
     uint16_t capr = *capr_reg;
     uint16_t start_offset = (capr + 16) % BUFFER_SIZE;
 
-
     uint16_t status, length;
 
-    memcpy(&status, m_RXBuffer + start_offset, sizeof(status));
-    memcpy(&length, m_RXBuffer + start_offset + 2, sizeof(length));
+    memcpy(&status, m_RXBufferVirt + start_offset, sizeof(status));
+    memcpy(&length, m_RXBufferVirt + start_offset + 2, sizeof(length));
 
     if (length == 0 || length > 1600) {
         Debug::Error("RTL8139", "Invalid packet length: %u", length);
@@ -182,7 +194,7 @@ std::slice<uint8_t> RTL8139::GetPacket() {
         return {};
     }
 
-    uint8_t* payload = m_RXBuffer + start_offset + 4;
+    uint8_t* payload = m_RXBufferVirt + start_offset + 4;
     return std::slice<uint8_t>(payload, length);
 }
 
@@ -193,7 +205,7 @@ void RTL8139::IncrementCapr() {
     uint16_t start_offset = (capr + 16) % BUFFER_SIZE;
 
     uint16_t length;
-    memcpy(&length, m_RXBuffer + start_offset + 2, sizeof(length));
+    memcpy(&length, m_RXBufferVirt + start_offset + 2, sizeof(length));
 
     capr = (capr + ((length + 4 + 3) & ~0b11)) & 0xFFFF;
     *capr_reg = capr;

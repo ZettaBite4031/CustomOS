@@ -22,6 +22,8 @@
 #include <core/arch/i686/Timer.hpp>
 #include <core/arch/i686/RTC.hpp>
 
+#include <core/arch/i686/PagingManager.hpp>
+
 #include <core/net/Net.hpp>
 
 #pragma region 
@@ -46,7 +48,7 @@ void EoH(int exit_code) {
 extern "C" void KernelEntry(BootParams* bootParams) {
     // Call all global instructors
     _init();
-    HAL_Initialize(bootParams);
+    PagingManager KernelPagingManager = HAL_Initialize(bootParams);
 
     Debug::Info("Kernel Main", "Kernel Initialization Success!");
 
@@ -56,6 +58,7 @@ extern "C" void KernelEntry(BootParams* bootParams) {
     RTC::SetTime(time);
     RTC::GetTime(time);
     RTC::LogTime("Kernel Main", time);
+
 
     IOAllocator KernelIOAllocator{};
     IORange disk_pio_range = KernelIOAllocator.RequestIORange(0x1F0, 8, false);
@@ -107,9 +110,9 @@ extern "C" void KernelEntry(BootParams* bootParams) {
     PCIDevice rtl8139_dev{ pci.FindDevice(0x10EC, 0x8139) };
     rtl8139_dev.PrintIDs();
     GeneralPCIDevice rtl8139_pci = rtl8139_dev.Upgrade();
-    PCIDevice::MmapRange rtl8139_mmap{ rtl8139_pci.FindMmapRange() };
+    PCIDevice::MmapRange rtl8139_mmap{ rtl8139_pci.FindMmapRange(KernelPagingManager) };
 
-    RTL8139 rtl8139{ &rtl8139_pci, rtl8139_mmap, false };
+    RTL8139 rtl8139{ &rtl8139_pci, rtl8139_mmap, &KernelPagingManager, false };
     auto mac = rtl8139.GetMACAddress();
     Debug::Info("Kernel Main", "ZOS MAC: %02X:%02X:%02X:%02X:%02X:%02X",
         mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -117,8 +120,8 @@ extern "C" void KernelEntry(BootParams* bootParams) {
     while (true) {
         std::vector<uint8_t> data;
         Net::GetPacket(data, &rtl8139);
-        if (strncmp(reinterpret_cast<const char*>(data.data()), "quit", 4) == 0) break;
         Debug::Info("Kernel Main", "Received: %.*s", data.size() - 1, data.data());
+        if (strncmp(reinterpret_cast<const char*>(data.data()), "quit", 4) == 0) break;
     }
 
     Debug::Info("Kernel Main", "Now we sleep for 2.5 seconds and then exit!");
