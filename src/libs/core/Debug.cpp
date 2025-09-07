@@ -72,6 +72,13 @@ namespace Debug {
         }
     };
 
+    void Init() {
+        for (int i = 0; i < MaximumLogDevices; i++) {
+            g_LogDevices[i] = { 0 };
+        }
+        g_LogDevicesCount = 0;
+    }
+
     void AddOutputDevice(TextDevice* device, DebugLevel minLogLevel, bool useTextColor) {
         if (g_LogDevicesCount + 1 > MaximumLogDevices) return;
         g_LogDevices[g_LogDevicesCount].device = device;

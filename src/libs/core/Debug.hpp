@@ -11,6 +11,7 @@ namespace Debug {
         Critical = 4,
     };
 
+    void Init();
     void AddOutputDevice(TextDevice* device, DebugLevel minLogLevel, bool useTextColor = true);
 
     void Debug(const char* module, const char* fmt, ...);
