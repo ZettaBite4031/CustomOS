@@ -1,4 +1,4 @@
-ENTRY(KernelEntry)
+ENTRY(main)
 OUTPUT_FORMAT("elf32-i386")
 phys = 0x000F0000;
 

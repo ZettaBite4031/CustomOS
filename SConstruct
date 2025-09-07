@@ -148,6 +148,7 @@ SConscript('src/libs/core/SConscript', variant_dir=variantDir + '/libs/core', du
 SConscript('src/bootloader/stage1/SConscript', variant_dir=variantDirStage1, duplicate=0)
 SConscript('src/bootloader/stage2/SConscript', variant_dir=variantDir + '/stage2', duplicate=0)
 SConscript('src/kernel/SConscript', variant_dir=variantDir + '/kernel', duplicate=0)
+SConscript('src/elf_test/SConscript', variant_dir=variantDir + '/elf_test', duplicate=0)
 SConscript('image/SConscript', variant_dir=variantDir, duplicate=0)
 
 Import('image')
