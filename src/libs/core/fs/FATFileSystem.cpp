@@ -336,7 +336,7 @@ bool FATFileSystem::WriteFATSector(uint32_t sector) {
 }
 
 bool FATFileSystem::FreeClusterChain(uint32_t cluster) {
-    while (cluster < 0x0FFFFFF8) {
+    while (cluster < 0x0FFFFFF8 || cluster != 0x00) {
         uint32_t next = GetNextCluster(cluster);
 
         if (!SetNextCluster(cluster, 0x00000000)) {

@@ -5,6 +5,7 @@
 
 File* FileSystem::Open(const char* path, FileOpenMode mode) {
     char name[MaxPathSize];
+    Memory::Set(name, 0x00, MaxPathSize);
 
     if (path[0] == '/') path++;
 
