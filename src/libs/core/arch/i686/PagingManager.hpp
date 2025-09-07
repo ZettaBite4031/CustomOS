@@ -7,9 +7,13 @@
 #include <boot/bootparams.h>
 
 
-constexpr uint32_t PAGE_PRESENT     = 0x01;
-constexpr uint32_t PAGE_READWRITE   = 0x02;
-constexpr uint32_t PAGE_USER        = 0x04;
+constexpr uint32_t PAGE_PRESENT     = (1 << 0);
+constexpr uint32_t PAGE_READWRITE   = (1 << 1);
+constexpr uint32_t PAGE_USER        = (1 << 2);
+constexpr uint32_t PAGE_WRITETHROUGH = (1 << 3);
+constexpr uint32_t PAGE_CACHEDISABLED = (1 << 4);
+
+constexpr uint32_t PAGE_MMIO = PAGE_PRESENT | PAGE_READWRITE | PAGE_CACHEDISABLED;
 
 constexpr size_t PAGE_SIZE = 4096;
 constexpr size_t PAGE_ENTRIES = 1024;

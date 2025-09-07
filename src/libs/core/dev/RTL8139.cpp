@@ -130,7 +130,7 @@ void RTL8139::GenerateRXBuffer() {
     }
 
     constexpr uintptr_t RXBUF_VIRTUAL_BASE = 0xC0400000;
-    KernelPagingManager->MapRange(reinterpret_cast<uintptr_t>(m_RXBufferPhys), RXBUF_VIRTUAL_BASE, num_pages * PAGE_SIZE, PAGE_PRESENT | PAGE_READWRITE);
+    KernelPagingManager->MapRange(reinterpret_cast<uintptr_t>(m_RXBufferPhys), RXBUF_VIRTUAL_BASE, num_pages * PAGE_SIZE, PAGE_PRESENT | PAGE_READWRITE | PAGE_CACHEDISABLED);
     m_RXBufferVirt = reinterpret_cast<uint8_t*>(RXBUF_VIRTUAL_BASE);
     Memory::Set(m_RXBufferVirt, 0x00, num_pages * PAGE_SIZE); 
 }
