@@ -35,11 +35,9 @@ void PageFaultHandler(ISR::Registers* regs) {
     arch::i686::PANIC();
 }
 
-PagingManager HAL_Initialize(BootParams* bootparams) {
-    
+PagingManager InitializeMMU(BootParams* bootparams, uintptr_t& kernel_heap_base, MemoryRegion& best_region) {
     PagingManager pagingManager(bootparams->Memory);
-    // pagingManager.RemapBootParams(bootparams, 0xC0000000);
-    // bootparams = (BootParams*)pagingManager.PhysToVirt((uintptr_t)bootparams);
+
     // Identity map the first 16MB of RAM
     pagingManager.IdentityMapRange(0x00000000, 16 * 1024 * 1024, PAGE_PRESENT | PAGE_READWRITE);
 
@@ -56,12 +54,12 @@ PagingManager HAL_Initialize(BootParams* bootparams) {
     uintptr_t kernel_stack_top = pagingManager.SetupKernelStack(kernel_stack_virt);
 
     // Find and map best memory region
-    uintptr_t kernel_heap_base = 0xD0000000;
-    MemoryRegion region = FindBestRegion(&bootparams->Memory);
-    pagingManager.MapRange(region.Begin + kernel_size, kernel_heap_base, region.Length - kernel_size, PAGE_PRESENT | PAGE_READWRITE);
+    kernel_heap_base = 0xD0000000;
+    best_region = FindBestRegion(&bootparams->Memory);
+    pagingManager.MapRange(best_region.Begin + kernel_size, kernel_heap_base, best_region.Length - kernel_size, PAGE_PRESENT | PAGE_READWRITE);
 
     size_t frame_allocator_size = 2 * 1024 * 1024;
-    FrameAllocator::Init(kernel_phys_base + kernel_size + region.Length, frame_allocator_size);
+    FrameAllocator::Init(kernel_phys_base + kernel_size + best_region.Length, frame_allocator_size);
 
     // Enable the MMU
     pagingManager.InstallPageDirectory();
@@ -70,14 +68,21 @@ PagingManager HAL_Initialize(BootParams* bootparams) {
     // Set kernel stack
     asm volatile("mov %0, %%esp" :: "r"(kernel_stack_top));
 
+    return pagingManager;
+}
+
+PagingManager HAL_Initialize(BootParams* bootparams) {
+    uintptr_t kernel_heap_base = 0;
+    MemoryRegion best_region{ 0 };
+    PagingManager pagingManager = InitializeMMU(bootparams, kernel_heap_base, best_region);
     Debug::Init();
     Debug::AddOutputDevice(&vga_text, Debug::DebugLevel::Info, false);
     Debug::AddOutputDevice(&e9_debug, Debug::DebugLevel::Debug, true);
+    
     g_VGADevice.ClearScreen();
-
     Debug::Info("ZOS", "=-=-=-=-= ZOS KERNEL LOADING =-=-=-=-=");
     Debug::Info("HAL", "Hardware Abstraction Layer beginning initialization...");
-    Mem_Init(kernel_heap_base, region);
+    Mem_Init(kernel_heap_base, best_region);
     GDT::LoadDefaults();
     IDT::Load();
     ISR::Init();
