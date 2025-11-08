@@ -12,8 +12,8 @@ public:
 
     static void Free(uintptr_t phys_addr);
 
-private:
     static constexpr size_t FRAME_SIZE = 4096;
+private:
 
     static uint8_t* bitmap;
     static size_t bitmap_size_bytes;

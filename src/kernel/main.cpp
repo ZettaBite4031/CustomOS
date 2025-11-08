@@ -10,7 +10,7 @@
 #include <core/cpp/Memory.hpp>
 #include <core/dev/MBR.hpp>
 
-#include <core/std/vector.hpp>
+#include <vector>
 
 #include <core/fs/FATFileSystem.hpp>
 #include <core/dev/RangeBlockDevice.hpp>
@@ -26,6 +26,8 @@
 
 #include <core/net/Net.hpp>
 
+#include <core/fs/ELF.hpp>
+
 #pragma region 
 // libgcc function which calls all global constructors.
 // Usually this is done in assembly, but since we skipped that part, we do it here.
@@ -40,7 +42,7 @@ void __attribute__((constructor)) test_constructor() {
 #pragma endregion
 
 void EoH(int exit_code) {
-    exit(exit_code);
+    OSExit(exit_code);
     HALT;
 }
 
@@ -85,34 +87,37 @@ extern "C" void KernelEntry(BootParams* bootParams) {
     }
 
     { // File system demo
-        const char* file_path = "/folder/demo.txt";
-        File* test = fatfs.Open(file_path, FileOpenMode::Read);
-        if (!test) {
-            Debug::Critical("Kernel Main", "Failed to open %s", file_path);
-            EoH(1);
-        }
-        std::vector<uint8_t> text_data(test->Size() + 1);
-        test->Read(text_data.data(), test->Size());
-        text_data[test->Size()] = '\0';
-        Debug::Info("Kernel Main", "%s contents:\n%s", file_path, text_data.data());
-        test->EraseContents();
-        test->Seek(0, SeekPos::Set);
-        const char* text = "I'm sooooo bored~";
-        test->Write(reinterpret_cast<const uint8_t*>(text), strlen(text));
-        test->Seek(0, SeekPos::Set);
-        text_data.clear();
-        text_data.resize(test->Size());
-        test->Read(text_data.data(), text_data.size());
-        text_data[text_data.size()] = '\0';
-        Debug::Info("Kernel Main", "%s contents:\n%s", file_path, text_data.data());
-        test->Release();
+        // const char* file_path = "/folder/demo.txt";
+        // File* test = fatfs.Open(file_path, FileOpenMode::Read);
+        // if (!test) {
+        //     Debug::Critical("Kernel Main", "Failed to open %s", file_path);
+        //     EoH(1);
+        // }
+        // std::vector<uint8_t> text_data(test->Size() + 1);
+        // test->Read(text_data.data(), test->Size());
+        // text_data[test->Size()] = '\0';
+        // Debug::Info("Kernel Main", "%s contents:\n%s", file_path, text_data.data());
+        // test->EraseContents();
+        // test->Seek(0, SeekPos::Set);
+        // const char* text = "I'm sooooo bored~";
+        // test->Write(reinterpret_cast<const uint8_t*>(text), strlen(text));
+        // test->Seek(0, SeekPos::Set);
+        // text_data.clear();
+        // text_data.resize(test->Size());
+        // test->Read(text_data.data(), text_data.size());
+        // text_data[text_data.size()] = '\0';
+        // Debug::Info("Kernel Main", "%s contents:\n%s", file_path, text_data.data());
+        // test->Release();
+        
+        // File* test = fatfs.Open("/bin/test_elf.elf", FileOpenMode::Read);
+        // ELF test_elf(test, &KernelPagingManager);
     } 
 
     IORange pci_io{ KernelIOAllocator.RequestIORange(PCI::PCI_CONFIG_ADDRESS, 8, false) };
-    PCI pci{ &pci_io };
-    PCIDevice rtl8139_dev{ pci.FindDevice(0x10EC, 0x8139) };
-    rtl8139_dev.PrintIDs();
-    GeneralPCIDevice rtl8139_pci = rtl8139_dev.Upgrade();
+    PCI pci = PCI(pci_io);
+    PCIDevice* rtl8139_dev = pci.FindDevice(0x10EC, 0x8139);
+    rtl8139_dev->PrintIDs();
+    GeneralPCIDevice rtl8139_pci = GeneralPCIDevice(rtl8139_dev->Upgrade());
     PCIDevice::MmapRange rtl8139_mmap{ rtl8139_pci.FindMmapRange(KernelPagingManager) };
 
     RTL8139 rtl8139{ &rtl8139_pci, rtl8139_mmap, &KernelPagingManager, false };
@@ -122,7 +127,7 @@ extern "C" void KernelEntry(BootParams* bootParams) {
     
     while (true) {
         std::vector<uint8_t> data;
-        Net::GetPacket(data, &rtl8139);
+        while (!Net::ReceiveUdpPayload(data, rtl8139));
         Debug::Info("Kernel Main", "Received: %.*s", data.size() - 1, data.data());
         if (strncmp(reinterpret_cast<const char*>(data.data()), "quit", 4) == 0) break;
     }

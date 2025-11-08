@@ -2,147 +2,112 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <vector>
+#include <array>
+#include <optional>
+#include <variant>
+#include <span>
 
 #include <core/ZosDefs.hpp>
-
-#include <core/std/vector.hpp>
-
+#include <core/Debug.hpp>
 #include <core/dev/RTL8139.hpp>
 
 namespace Net {
-    using Payload = std::slice<uint8_t>;
+    using Bytes = std::span<const uint8_t>;
+    using WBytes = std::span<uint8_t>;
 
-    enum PacketType : uint16_t {
-        Ipv4 = 0x0800,
-        Arp = 0x0806,
+    enum class EtherType    : uint16_t { Ipv4 = 0x0800, Arp = 0x0806, Dot1Q = 0x8100, };
+    enum class ArpOp        : uint16_t { Request = 1, Reply = 2, };
+    enum class IpProto      : uint16_t { Tcp = 0x06, Udp = 0x11, };
+
+    struct EthernetHeader {
+        std::array<uint8_t, 6> DestinationMAC;
+        std::array<uint8_t, 6> SourceMAC;
+        uint16_t type_be;
+    } PACKED;
+
+    struct ArpHeader {
+        uint16_t htype_be;
+        uint16_t ptype_be;
+        uint8_t hlen;
+        uint8_t plen;
+        uint16_t op_be;
+    } PACKED;
+
+    struct Ipv4Header {
+        uint8_t ver_ihl;
+        uint8_t dscp_ecn;
+        uint16_t total_len_be;
+        uint16_t id_be;
+        uint16_t flags_frag_be;
+        uint16_t ttl;
+        uint8_t proto;
+        uint16_t hdr_ck_be;
+        uint32_t src_be;
+        uint32_t dst_be;
+    } PACKED;
+
+    struct UdpHeader {
+        uint16_t src_be;
+        uint16_t dst_be;
+        uint16_t len_be;
+        uint16_t csum_be;
+    } PACKED;
+
+    // --- Views ---
+    struct EthernetView {
+        const EthernetHeader* hdr{};
+        Bytes payload{};
+        EtherType type{};
+        bool dot1q{ false };
     };
 
-    struct EthernetFrameParams {
-        uint8_t* DestinationMAC{ nullptr };
-        uint8_t* SourceMAC{ nullptr };
-        PacketType EtherType{};
+    struct ArpView {
+        const ArpHeader* hdr{};
+        Bytes sha{}, spa{}, tha{}, tpa{};
+        ArpOp op{};
+    };
+
+    struct Ipv4View {
+        const Ipv4Header* hdr{};
+        Bytes options{};
+        Bytes payload{};
+        IpProto proto{};
+        uint8_t ihl_bytes{};
+        uint16_t total_len{};
+    };
+
+    struct UdpView {
+        const UdpHeader* hdr{};
+        Bytes data{};   // UDP payload
+    };
+
+    using Parsed = std::variant<ArpView, Ipv4View>;
+
+    std::optional<EthernetView> ParseEthernet(Bytes);
+    std::optional<Parsed>       ParsePayload(const EthernetView&);
+    std::optional<UdpView>      ParseUdp(const Ipv4View&);
+
+    uint16_t Ipv4HeaderChecksum(Bytes);
+    uint16_t FoldChecksum(uint32_t);
+
+    struct EthernetBuilder {
+        std::array<uint8_t, 6> DestinationMAC{}, SourceMAC{};
+        EtherType type{ EtherType::Ipv4 };
         std::vector<uint8_t> payload;
+
+        void send(RTL8139&) const;
     };
 
-    class EthernetFrame {
-    public:
-        EthernetFrame(Payload& packet);
-        EthernetFrame(EthernetFrameParams& params);
+    struct ArpReplyBuilder {
+        std::array<uint8_t, 6> sha{};
+        std::array<uint8_t, 4> spa{};
+        std::array<uint8_t, 6> tha{};
+        std::array<uint8_t, 4> tpa{};
 
-        void Send(RTL8139* rtl8139);
-
-        Payload GetPayload() { return payload; }
-        PacketType GetEtherType() { return EtherType; }
-        std::vector<uint8_t> DeepCopy() { return owned_payload; }
-
-    private:
-        uint8_t DestinationMAC[6]{};
-        uint8_t SourceMAC[6]{};
-        uint32_t Tag{};
-        PacketType EtherType{};
-        uint32_t CRC{};
-        size_t PayloadOffset{};
-        Payload payload;
-        std::vector<uint8_t> owned_payload;
-
-        void SetPayload(Payload& packet);
-        bool HasDot1Q(Payload& packet);
-        size_t EtherTypeOffset(Payload& packet);
-
-    };
-    
-    class ParsedPacket {
-    public:
-        virtual constexpr PacketType Type() const = 0;
+        EthernetBuilder ToEthernet(const std::array<uint8_t, 6>&,
+                                   const std::array<uint8_t, 6>&);
     };
 
-    struct ParsedEthernetFrame {
-        EthernetFrame* ethernet{ nullptr };
-        ParsedPacket* packet{ nullptr };
-    };
-
-    struct ArpFrameParams;
-
-    enum ArpOperation : uint16_t {
-        Request = 1,
-        Reply = 2,
-    };
-
-    struct ArpFrameParams {
-        uint16_t HardwareType;
-        uint16_t ProtocolType;
-        uint8_t HardwareAddrSize;
-        uint8_t ProtocolAddrSize;
-        ArpOperation Operation;
-        uint8_t* SenderHardwareAddr{};
-        uint8_t* SenderProtocolAddr{};
-        uint8_t* TargetHardwareAddr{};
-        uint8_t* TargetProtocolAddr{};
-    };
-
-    class ArpFrame : public ParsedPacket {
-    public:
-        ArpFrame(Payload& packet);
-        ArpFrame(ArpFrameParams& params);
-
-        void Send(RTL8139* rtl8139);
-
-        uint16_t GetHardwareType() const { return HardwareType; }
-        uint16_t GetProtocolType() const { return ProtocolType; }
-        uint8_t GetHardwareAddrSize() const { return HardwareAddrSize; }
-        uint8_t GetProtocolAddrSize() const { return ProtocolAddrSize; }
-        ArpOperation GetOperation() const { return Operation; }
-        uint8_t* GetSenderHardwareAddr() { return SenderHardwareAddr; }
-        uint8_t* GetSenderProtocolAddr() { return SenderProtocolAddr; }
-        uint8_t* GetTargetHardwareAddr() { return TargetHardwareAddr; }
-        uint8_t* GetTargetProtocolAddr() { return TargetProtocolAddr; }
-
-        virtual constexpr PacketType Type() const override { return PacketType::Arp; };
-    private:
-        uint16_t HardwareType{};
-        uint16_t ProtocolType{};
-        uint8_t HardwareAddrSize{};
-        uint8_t ProtocolAddrSize{};
-        ArpOperation Operation{};
-        uint8_t SenderHardwareAddr[6]{};
-        uint8_t SenderProtocolAddr[4]{};
-        uint8_t TargetHardwareAddr[6]{};
-        uint8_t TargetProtocolAddr[4]{};
-    };
-
-    enum Ipv4Protocol : uint8_t {
-        Tcp = 0x06,
-        Udp = 0x11,
-    };
-
-    class Ipv4Frame : public ParsedPacket {
-    public:
-        Ipv4Frame(Payload& packet);
-
-        uint16_t CalculateChecksum(Payload& data);
-
-
-        uint8_t GetIHL() const { return IHL; }
-        uint16_t GetPayloadSize() const { return TotalSize; }
-        Ipv4Protocol GetProtocol() const { return Protocol; }
-        uint8_t* GetSourceIP() { return &SourceIP[0]; }
-        Payload& GetPayload() { return payload; }
-
-        virtual constexpr PacketType Type() const override { return PacketType::Ipv4; }
-
-    private:
-        uint8_t IHL;
-        uint16_t TotalSize;
-        Ipv4Protocol Protocol;
-        uint8_t SourceIP[4]{};
-        Payload payload;
-    };
-
-    struct UdpFrame {
-        std::vector<uint8_t> data{};
-        
-        UdpFrame(Payload& payload);
-    };
-
-    void GetPacket(std::vector<uint8_t>& out_packet, RTL8139* rtl8139);
-};
+    bool ReceiveUdpPayload(std::vector<uint8_t>&, RTL8139& nic);
+}

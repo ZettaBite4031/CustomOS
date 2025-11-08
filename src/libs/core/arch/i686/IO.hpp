@@ -16,7 +16,7 @@ namespace arch {
         EXPORT void ASMCALL DisableInterrupts();
         EXPORT void ASMCALL EnableInterrupts();
 
-        EXPORT void ASMCALL PANIC();
+        EXPORT void ASMCALL __attribute__((noreturn)) PANIC();
 
         EXPORT void ASMCALL LoadGDT(void* desc, uint16_t cs, uint16_t ds);
         EXPORT void ASMCALL LoadIDT(void* desc);

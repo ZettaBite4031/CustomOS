@@ -94,7 +94,7 @@ platform_prefix = ''
 if HOST_ENVIRONMENT['arch'] == 'i686':
     platform_prefix = 'i686-elf-'
 
-toolchainDir = Path(HOST_ENVIRONMENT['toolchain'], platform_prefix.removesuffix('-')).resolve()
+toolchainDir = Path(HOST_ENVIRONMENT['toolchain'], "i686-elf-toolchain").resolve()
 toolchainBin = Path(toolchainDir, 'bin')
 toolchainGccLibs = Path(toolchainDir, 'lib', 'gcc', platform_prefix.removesuffix('-'), DEPS['gcc'])
 
@@ -126,6 +126,7 @@ TARGET_ENVIRONMENT.Append(
     CXXFLAGS = [
         '-fno-exceptions',
         '-fno-rtti',
+        '-std=gnu++20'
     ],
     LINKFLAGS = [
         '-nostdlib'
@@ -148,7 +149,6 @@ SConscript('src/libs/core/SConscript', variant_dir=variantDir + '/libs/core', du
 SConscript('src/bootloader/stage1/SConscript', variant_dir=variantDirStage1, duplicate=0)
 SConscript('src/bootloader/stage2/SConscript', variant_dir=variantDir + '/stage2', duplicate=0)
 SConscript('src/kernel/SConscript', variant_dir=variantDir + '/kernel', duplicate=0)
-SConscript('src/elf_test/SConscript', variant_dir=variantDir + '/elf_test', duplicate=0)
 SConscript('image/SConscript', variant_dir=variantDir, duplicate=0)
 
 Import('image')

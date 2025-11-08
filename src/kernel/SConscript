@@ -31,6 +31,7 @@ static_libs = [
     libcore,
 ]
 
+
 objects = [
     obj_crti,
     os.path.join(env["TOOLCHAIN_LIBGCC"], 'crtbegin.o'),

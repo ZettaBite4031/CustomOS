@@ -17,6 +17,7 @@ void FrameAllocator::Init(uintptr_t mmap_start, size_t mmap_size) {
     bitmap = static_bitmap;
 
     Memory::Set(bitmap, 0x00, bitmap_size_bytes);
+    Memory::Set(reinterpret_cast<void*>(phys_start), 0x00, mmap_size);
 }
 
 uintptr_t FrameAllocator::Allocate() {

@@ -1,6 +1,6 @@
 ENTRY(KernelEntry)
 OUTPUT_FORMAT("elf32-i386")
-phys = 0x000F0000;
+phys = 0x00100000;
 
 SECTIONS 
 {

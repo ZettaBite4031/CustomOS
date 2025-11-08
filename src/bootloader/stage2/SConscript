@@ -29,8 +29,6 @@ headers = GlobRecursive(env, '*.h') + \
 
 objects = env.Object(sources)
 
-obj_crti = objects.pop(FindIndex(objects, lambda item: IsFileName(item, 'crti.o')))
-obj_crtn = objects.pop(FindIndex(objects, lambda item: IsFileName(item, 'crtn.o')))
 
 Import('libcore')
 
@@ -39,12 +37,8 @@ static_libs = [
 ]
 
 objects = [
-    obj_crti,
-    os.path.join(env["TOOLCHAIN_LIBGCC"], 'crtbegin.o'),
     *objects,
     *static_libs,
-    os.path.join(env["TOOLCHAIN_LIBGCC"], 'crtend.o'),
-    obj_crtn
 ]
 
 

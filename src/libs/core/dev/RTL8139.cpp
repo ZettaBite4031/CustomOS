@@ -2,7 +2,7 @@
 
 #include <core/arch/i686/Timer.hpp>
 #include <core/arch/i686/FrameAllocator.hpp>
-#include <core/std/vector.hpp>
+#include <vector>
 
 RTL8139::RTL8139(GeneralPCIDevice* pci_dev, PCIDevice::MmapRange rtl_mmap, PagingManager* kernel_paging_manager, bool loopback) 
     : PCI{ pci_dev }, MMapRange{ rtl_mmap }, KernelPagingManager{ kernel_paging_manager },m_Loopback{ loopback } {
@@ -171,7 +171,7 @@ void RTL8139::Wait(volatile uint16_t* capr_reg, volatile uint16_t* cbr_reg) {
     }
 }
 
-std::slice<uint8_t> RTL8139::GetPacket() {
+std::span<uint8_t> RTL8139::GetPacket() {
     volatile uint16_t* capr_reg = (uint16_t*)(MMapRange.start + CAPR_OFFSET);
     volatile uint16_t* cbr_reg = (uint16_t*)(MMapRange.start + CBR_OFFSET);
     Wait(capr_reg, cbr_reg);
@@ -195,7 +195,7 @@ std::slice<uint8_t> RTL8139::GetPacket() {
     }
 
     uint8_t* payload = m_RXBufferVirt + start_offset + 4;
-    return std::slice<uint8_t>(payload, length);
+    return std::span<uint8_t>(payload, length);
 }
 
 

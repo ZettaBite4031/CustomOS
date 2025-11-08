@@ -101,3 +101,55 @@ memcmp:
 .done:
     pop ebp
     ret
+
+; EXPORT void* ASMCALL memmove(void*, const void*, unsigned long);
+global memmove
+memmove:
+    push ebp
+    mov ebp, esp
+
+    push esi
+    push edi
+
+    mov edi, [ebp + 8]
+    mov esi, [ebp + 12] 
+    mov ecx, [ebp + 16]
+    mov eax, edi
+
+    test ecx, ecx
+    jz .done
+
+    cmp edi, esi 
+    je .done
+
+    jb .forward_copy
+
+    mov edx, esi
+    add edx, ecx
+    cmp edi, edx
+    jae .forward_copy
+
+    add esi, ecx
+    add edi, ecx
+    std
+    dec esi
+    dec edi
+    rep movsb
+    cld
+    jmp .done
+
+    .forward_copy:
+        cld
+        mov edx, ecx
+        shr ecx, 2
+        rep movsd
+        mov ecx, edx
+        and ecx, 3
+        rep movsb
+
+    .done:
+        pop edi
+        pop esi
+        mov esp, ebp
+        pop ebp
+        ret

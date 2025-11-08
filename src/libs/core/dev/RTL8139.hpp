@@ -4,15 +4,17 @@
 #include <stddef.h>
 
 #include <core/arch/i686/PCI.hpp>
-#include <core/std/vector.hpp>
+#include <vector>
+#include <span>
 
 #include <core/arch/i686/IRQ.hpp>
-#include <core/std/Utility.hpp>
+#include <utility>
 
 #include <core/arch/i686/Timer.hpp>
 
 #include <core/arch/i686/PagingManager.hpp>
 
+#include <core/std/set_bits.hpp>
 
 class RTL8139 {
 public:
@@ -26,7 +28,7 @@ public:
     }
 
     template<typename T>
-    void write(std::slice<T>& packet) {
+    void write(std::span<T>& packet) {
         if (packet.size() < 60) {
             Debug::Error("RTL8139", "Packet is too small!");
             return;
@@ -69,14 +71,14 @@ private:
     void ClearInterrupts();
     void SetInterruptMask();
 
-    std::slice<uint8_t> GetPacket();
+    std::span<uint8_t> GetPacket();
     void IncrementCapr();
     void Wait(volatile uint16_t* capr_reg, volatile uint16_t* cbr_reg);
     
     static void InterruptHandler(ISR::Registers* regs, void* data);
 
     template<typename T>
-    void TransmitAndWait(volatile uint32_t* data_ptr, volatile uint32_t* status_ptr, std::slice<T>& packet) {
+    void TransmitAndWait(volatile uint32_t* data_ptr, volatile uint32_t* status_ptr, std::span<T>& packet) {
         uintptr_t phys_addr = KernelPagingManager->VirtToPhys((uintptr_t)packet.data());
         *data_ptr = (uint32_t)phys_addr;
 

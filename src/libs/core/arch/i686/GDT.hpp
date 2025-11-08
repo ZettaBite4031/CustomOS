@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include <core/std/vector.hpp>
+#include <vector>
 #include <core/arch/i686/IO.hpp>
 
 namespace GDT {

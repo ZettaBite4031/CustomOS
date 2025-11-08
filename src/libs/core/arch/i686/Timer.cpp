@@ -11,7 +11,7 @@ PICDriver* g_Driver{ nullptr };
 uint32_t g_PITHZ{ 0 };
 
 void PITHandler(ISR::Registers* regs, void*) {
-    PITTicks++;
+    PITTicks = PITTicks + 1;
     g_Driver->SendEOI(0);
 }
 

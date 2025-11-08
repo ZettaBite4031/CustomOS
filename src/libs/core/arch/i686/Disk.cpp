@@ -2,7 +2,7 @@
 
 #include <core/cpp/String.hpp>
 #include <core/cpp/Algorithm.hpp>
-
+#include <core/cpp/Memory.hpp>
 
 void DecodeATAString(const char* src, char* dst, int length) {
     for (int i = 0; i < length; i += 2) {
