@@ -187,7 +187,7 @@ namespace Net {
         return true;
     }
 
-    bool ReceiveUdpPayload(std::vector<uint8_t>& out, RTL8139& nic) {
+    bool ReceivePayload(std::vector<uint8_t>& out, RTL8139& nic) {
         bool got = false;
         nic.read([&](Bytes pkt) {
             auto eth = ParseEthernet(pkt);

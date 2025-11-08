@@ -26,7 +26,6 @@
 
 #include <core/net/Net.hpp>
 
-#include <core/fs/ELF.hpp>
 
 #pragma region 
 // libgcc function which calls all global constructors.
@@ -108,9 +107,6 @@ extern "C" void KernelEntry(BootParams* bootParams) {
         // text_data[text_data.size()] = '\0';
         // Debug::Info("Kernel Main", "%s contents:\n%s", file_path, text_data.data());
         // test->Release();
-        
-        // File* test = fatfs.Open("/bin/test_elf.elf", FileOpenMode::Read);
-        // ELF test_elf(test, &KernelPagingManager);
     } 
 
     IORange pci_io{ KernelIOAllocator.RequestIORange(PCI::PCI_CONFIG_ADDRESS, 8, false) };
@@ -127,7 +123,7 @@ extern "C" void KernelEntry(BootParams* bootParams) {
     
     while (true) {
         std::vector<uint8_t> data;
-        while (!Net::ReceiveUdpPayload(data, rtl8139));
+        while (!Net::ReceivePayload(data, rtl8139));
         Debug::Info("Kernel Main", "Received: %.*s", data.size() - 1, data.data());
         if (strncmp(reinterpret_cast<const char*>(data.data()), "quit", 4) == 0) break;
     }

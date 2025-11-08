@@ -40,7 +40,7 @@ namespace Net {
         uint16_t total_len_be;
         uint16_t id_be;
         uint16_t flags_frag_be;
-        uint16_t ttl;
+        uint8_t ttl;
         uint8_t proto;
         uint16_t hdr_ck_be;
         uint32_t src_be;
@@ -109,5 +109,5 @@ namespace Net {
                                    const std::array<uint8_t, 6>&);
     };
 
-    bool ReceiveUdpPayload(std::vector<uint8_t>&, RTL8139& nic);
+    bool ReceivePayload(std::vector<uint8_t>&, RTL8139& nic);
 }
