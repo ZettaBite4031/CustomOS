@@ -85,10 +85,20 @@ MemoryRegion FindBestRegion(MemoryInfo* info, size_t& idx) {
 bool Mem_Init(uintptr_t heap_base, const MemoryRegion& best_region) {
     g_FreeList = (Block*)(heap_base);
     memset(g_FreeList, 0x00, sizeof(Block));
-    g_FreeList->size = best_region.Length - sizeof(Block);
+    
+    g_FreeList->size = best_region.Length - (sizeof(Block) * 2);
     g_FreeList->free = true;
-    g_FreeList->next = nullptr;
     g_FreeList->prev = nullptr;
+
+    uintptr_t tail_ptr = (heap_base + g_FreeList->size + sizeof(Block));
+    Block* tail = reinterpret_cast<Block*>(tail_ptr);
+    memset(tail, 0x00, sizeof(Block));
+    
+    tail->size = 0;
+    tail->free = true;
+    tail->next = nullptr;
+    tail->prev = g_FreeList;
+    g_FreeList->next = tail;
 
     Debug::Info("MemInit", "Memory initialized! Region [%08X - %08X] (%dMB)", best_region.Begin, best_region.Begin + best_region.Length, best_region.Length / 1024 / 1024);
     return true;
@@ -96,6 +106,8 @@ bool Mem_Init(uintptr_t heap_base, const MemoryRegion& best_region) {
 
 void* zmalloc_aligned(uint32_t size, uint32_t alignment) {
     Block* current = g_FreeList;
+
+    constexpr size_t MIN_SPLIT_PAYLOAD = 16;
 
     while (current) {
         if (!current->free) {
@@ -107,19 +119,30 @@ void* zmalloc_aligned(uint32_t size, uint32_t alignment) {
         uintptr_t payload_base = raw_block + sizeof(Block);
         uintptr_t user_data = ALIGN_UP(payload_base + sizeof(void*), alignment);
         uintptr_t block_end = user_data + size;
+        if (block_end <= payload_base) {
+            current = current->next;
+            continue;
+        }
+
         uintptr_t total_size = block_end - payload_base;
 
         if (current->size >= total_size) {
-            if (current->size >= (total_size + sizeof(Block)) * 1.5) {
+            size_t leftover = current->size - static_cast<size_t>(total_size);
+
+            bool do_split = false;
+            if (leftover >= sizeof(Block) + MIN_SPLIT_PAYLOAD) do_split = true;
+            if (current->next == nullptr && leftover >= sizeof(Block)) do_split = true; 
+
+            if (do_split) {
                 Block* split = (Block*)(payload_base + total_size);
-                split->size = current->size - total_size - sizeof(Block);
+                split->size = static_cast<uint32_t>(leftover - sizeof(Block));
                 split->free = true;
                 split->next = current->next;
                 split->prev = current;
 
                 if (current->next) current->next->prev = split;
                 current->next = split;
-                current->size = total_size;
+                current->size = static_cast<uint32_t>(total_size);
             }
 
             current->free = false;
@@ -127,6 +150,7 @@ void* zmalloc_aligned(uint32_t size, uint32_t alignment) {
             *((Block**)backref) = current;
             return (void*)user_data;
         }
+        
         current = current->next;
     }
     
