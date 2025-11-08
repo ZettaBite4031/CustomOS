@@ -43,7 +43,7 @@ public:
         m_TransmitIndex = (m_TransmitIndex + 1) % 4; 
     }
 
-    std::vector<uint8_t> GetMACAddress();
+    std::array<uint8_t, 6> GetMACAddress();
 private:
     static constexpr size_t COMMAND_REGISTER_OFFSET = 0x37;
     static constexpr size_t RBSTART_OFFSET = 0x30;

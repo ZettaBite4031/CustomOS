@@ -26,8 +26,8 @@ RTL8139::RTL8139(GeneralPCIDevice* pci_dev, PCIDevice::MmapRange rtl_mmap, Pagin
 
 static constexpr size_t BUFFER_SIZE = 64 * 1024 + 16 + 1536;
 
-std::vector<uint8_t> RTL8139::GetMACAddress() {
-    std::vector<uint8_t> mac{ 6 };
+std::array<uint8_t, 6> RTL8139::GetMACAddress() {
+    std::array<uint8_t, 6> mac;
     for (int i = 0; i < 6; i++) {
         mac[i] = *(MMapRange.start + i);
     }
