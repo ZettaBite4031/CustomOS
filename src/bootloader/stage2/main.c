@@ -48,7 +48,7 @@ void __attribute__((cdecl)) Start(uint16_t bootDrive, void* partition_location) 
     }
 
     // list root directory
-    FAT_File* fd = FAT_Open(&partition, "/bin");
+    FAT_File* fd = FAT_Open(&partition, "/");
     FAT_DirectoryEntry entry;
     int i = 0; 
     while (FAT_ReadEntry(&partition, fd, &entry) && i++ < 5) {

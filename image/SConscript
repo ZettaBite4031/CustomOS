@@ -21,8 +21,6 @@ Import('stage1')
 Import('stage2')
 Import('kernel')
 Import('kernel_stripped')
-Import('test_elf')
-Import('test_elf_stripped')
 
 Import('TARGET_ENVIRONMENT')
 TARGET_ENVIRONMENT: Environment
@@ -255,7 +253,7 @@ def unmount_fs(mount_dir: str, mount_method: str, mount_token: str):
     else:
         raise ValueError("Unknown mount method!")
 
-def build_disk(image, stage1, stage2, kernel, test_elf, files, env):
+def build_disk(image, stage1, stage2, kernel, files, env):
     size_sectors = (env['imageSize'] + SECTOR_SIZE - 1) // SECTOR_SIZE
     file_system = env['imageFS']
     mount_method = env['mountMethod']
@@ -294,12 +292,6 @@ def build_disk(image, stage1, stage2, kernel, test_elf, files, env):
         os.makedirs(bootdir)
         copy2(kernel, bootdir)
 
-        # copy test_elf
-        print(f"> copying test elf...")
-        bindir = os.path.join(tempdir, "bin")
-        os.makedirs(bindir)
-        copy2(test_elf, bindir)
-
         # copy rest of files
         src_root = env['BASEDIR']
         print(f"> copying files...")
@@ -328,14 +320,13 @@ def build_image(target, source, env):
     stage1 = str(source[0])
     stage2 = str(source[1])
     kernel = str(source[2])
-    test_elf = str(source[3])
     files = source[4:]
 
     image = str(target[0])
     if env['imageType'] == 'floppy':
         build_floppy(image, stage1, stage2, kernel, files, env)
     elif env['imageType'] == 'disk':
-        build_disk(image, stage1, stage2, kernel, test_elf, files, env)
+        build_disk(image, stage1, stage2, kernel, files, env)
     else:
         raise ValueError('Unknown image type ' + env['imageType'])
 
@@ -344,9 +335,9 @@ def build_image(target, source, env):
 root = env.Dir('root')
 root_content = GlobRecursive(env, '*', root)
 if env['config'] == 'release':
-    inputs = [stage1, stage2, kernel_stripped, test_elf_stripped] + root_content
+    inputs = [stage1, stage2, kernel_stripped] + root_content
 else:
-    inputs = [stage1, stage2, kernel, test_elf] + root_content
+    inputs = [stage1, stage2, kernel] + root_content
     
 output_fmt = 'img'
 # if env['imageType'] == 'qcow3':
@@ -361,6 +352,5 @@ image = env.Command(output, inputs,
 env.Depends(image, stage1) 
 env.Depends(image, stage2)
 env.Depends(image, kernel)
-env.Depends(image, test_elf)
 
 Export('image')
